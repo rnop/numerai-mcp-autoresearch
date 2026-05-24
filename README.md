@@ -1,6 +1,6 @@
 # Numerai MCP + Autoresearch Project
 
-GitHub Pages: [View Research Overview](https://rnop.github.io/numerai-mcp-autoresearch/)
+GitHub Pages: <a href="https://rnop.github.io/numerai-mcp-autoresearch/" target="_blank">View Research Overview</a>
 
 ## Overview
 
