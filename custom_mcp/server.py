@@ -6,7 +6,7 @@ Tools for the full weekly workflow:
   check_retrain_status     — poll the background training job
   get_training_summary     — read latest metadata JSON, return config snapshot
   compare_weekly_features  — diff this week's features vs last week by group
-  generate_weekly_report   — write reports/YYYY-WW_weekly_report.md
+  generate_weekly_report   — write docs/YYYY-WW_weekly_report.md
 
 Upload is handled by the official Numerai MCP (mcp__numerai__upload_model).
 """
@@ -27,7 +27,7 @@ from fastmcp import FastMCP
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CUSTOM_MCP_DIR = Path(__file__).resolve().parent
 SUBMISSIONS_DIR = PROJECT_ROOT / "submissions"
-REPORTS_DIR = PROJECT_ROOT / "reports"
+REPORTS_DIR = PROJECT_ROOT / "docs"
 PYTHON_EXE = os.environ.get("NUMERAI_PYTHON", sys.executable)
 SOURCE_DIR = PROJECT_ROOT / "autoresearch-src"
 MAKE_SUBMISSION = str(CUSTOM_MCP_DIR / "make_submission.py")
@@ -518,7 +518,7 @@ def compare_weekly_features() -> dict:
 def generate_weekly_report() -> dict:
     """
     Build a full markdown + HTML report for the current ISO week and save it to
-    reports/YYYY-WW_weekly_report.md and reports/YYYY-WW_weekly_report.html.
+    docs/YYYY-WW_weekly_report.md and docs/YYYY-WW_weekly_report.html.
 
     The report covers: training config, feature changes vs last week (grouped),
     target info (target_ender_60 default), and model stats.

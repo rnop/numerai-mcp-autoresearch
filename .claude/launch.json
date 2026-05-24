@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "reports",
+      "name": "docs",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "7234", "--directory", "reports"],
+      "runtimeArgs": ["-m", "http.server", "7234", "--directory", "docs"],
       "port": 7234
     }
   ]

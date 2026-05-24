@@ -8,4 +8,5 @@ submissions/
 mlruns/
 .mcp.json
 *.log
+*.pid
 *.db

@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
-REPORTS_DIR = ROOT / "reports"
+REPORTS_DIR = ROOT / "docs"
 EXPERIMENTS_TSV = ROOT / "experiments" / "results.tsv"
 FEATURE_ANALYSIS_DIR = ROOT / "artifacts" / "feature_analysis"
 GROUP_SUMMARY_CSV = FEATURE_ANALYSIS_DIR / "group_summary_validation.csv"
