@@ -26,7 +26,7 @@ FEATURE_ANALYSIS_README = FEATURE_ANALYSIS_DIR / "README.md"
 RECOMMENDED_FEATURES_CSV = FEATURE_ANALYSIS_DIR / "recommended_features_target_ender_60.csv"
 RECOMMENDED_UNIQUE_CSV = FEATURE_ANALYSIS_DIR / "recommended_unique_target_ender_60.csv"
 TARGET_INTERCORR_CSV = FEATURE_ANALYSIS_DIR / "target_intercorr.csv"
-REPORT_INDEX_NAME = "research_overview.html"
+REPORT_INDEX_NAME = "index.html"
 DEFAULT_TARGET = "target_ender_60"
 ROOT_ARTIFACTS_DIR = ROOT / "artifacts"
 

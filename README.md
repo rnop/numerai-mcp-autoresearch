@@ -33,7 +33,7 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
   Operational MCP layer for weekly retraining, feature-diffing, summaries, and report generation
 - `custom_mcp/site_builder.py`:
   HTML report and dashboard generator for weekly and research outputs
-- `docs/research_overview.html`:
+- `docs/index.html`:
   A browser-friendly HTML page organizing experiment summaries, weekly reports, and feature analysis
 
 ## System architecture
@@ -61,7 +61,7 @@ flowchart TD
         direction TB
         N["Feature Analysis<br/>feature_analysis_report.html"]
         P["Weekly Submission<br/>example_weekly_report.html"]
-        Q["Research Experiments Overview<br/>research_overview.html"]
+        Q["Research Experiments Overview<br/>index.html"]
         C --> N
         N --> Q
         P --> Q
@@ -122,6 +122,6 @@ Follow the instructions in `WEEKLY_SUBMISSION_PROMPT.md` for weekly retraining, 
 
 The agent uses `custom_mcp/site_builder.py` to generate an HTML layer from evaluated artifacts that can be opened in any browser:
 
-- `docs/research_overview.html` — Research Experiments Overview: a dashboard-style landing page with experiment leaderboard, best-metric cards, and links to all reports.
+- `docs/index.html` — Research Experiments Overview: a dashboard-style landing page with experiment leaderboard, best-metric cards, and links to all reports.
 - `docs/example_weekly_report.html` — weekly operations report covering the currently deployed model, feature changes, and training configuration.
 - `docs/feature_analysis_report.html` — interactive feature and feature-set evaluation metrics across validation eras.
