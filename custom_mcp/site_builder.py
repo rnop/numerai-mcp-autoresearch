@@ -1865,7 +1865,7 @@ def render_report_file(markdown_path: Path) -> Path:
     if markdown_path.name == "feature_analysis_report.md":
         html_output = _build_feature_analysis_report_html(markdown_text)
     else:
-        title = markdown_path.stem.replace("_", " ").title()
+        title = "Weekly Report"
         html_output = build_report_html(title, markdown_text)
     html_path.write_text(html_output, encoding="utf-8")
     return html_path
