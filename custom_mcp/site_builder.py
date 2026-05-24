@@ -307,7 +307,6 @@ def _nav_links_html(active: str = "") -> str:
         ("Research Experiments Overview", f"./{REPORT_INDEX_NAME}", active == "overview"),
         ("Latest weekly report", latest_weekly, active == "weekly"),
         ("Feature Analysis", "./feature_analysis_report.html", active == "feature"),
-        ("Read the repo guide", "../README.md", False),
     ]
     parts = []
     for label, href, is_active in items:
