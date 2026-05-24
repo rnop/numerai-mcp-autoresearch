@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Numerai Research Experiments Overview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f3ec;
+      --paper: rgba(255, 252, 246, 0.84);
+      --paper-strong: #fffdf9;
+      --ink: #161514;
+      --muted: #615a52;
+      --line: rgba(123, 107, 83, 0.18);
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --accent-soft: rgba(15, 118, 110, 0.14);
+      --shadow: 0 20px 50px rgba(61, 47, 25, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(180, 83, 9, 0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 30%),
+        linear-gradient(180deg, #efe6d6 0%, var(--bg) 38%, #f4efe7 100%);
+    }
+    a {
+      color: inherit;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 26px 18px 48px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,248,237,0.94));
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      border-radius: 28px;
+      padding: 30px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.24), transparent 70%);
+    }
+    .eyebrow {
+      display: inline-block;
+      padding: 0.4rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.76rem;
+    }
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(2rem, 3.2vw, 3.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+      white-space: nowrap;
+    }
+    .hero p {
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .hero-links a {
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 0.85rem 1.1rem;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+    }
+    .hero-links a.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin: 20px 0 28px;
+    }
+    .metric-card, .panel, .signal-card, .leader-card, .report-card, .empty-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .metric-card {
+      padding: 18px;
+    }
+    .metric-label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .metric-card strong {
+      display: block;
+      font-size: 1.8rem;
+      margin-bottom: 6px;
+    }
+    .metric-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 18px;
+    }
+    .panel {
+      padding: 22px;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+    .panel p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .leader-grid, .signal-grid, .report-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .leader-card {
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .leader-card p {
+      margin: 6px 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .leader-card span {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .signal-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .signal-card {
+      padding: 16px;
+    }
+    .signal-card h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+    .signal-card p, .signal-card small {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .signal-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.08);
+      margin: 12px 0 8px;
+      overflow: hidden;
+    }
+    .signal-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), #14b8a6);
+    }
+    .report-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      text-decoration: none;
+    }
+    .report-card span {
+      text-transform: capitalize;
+      font-weight: 700;
+    }
+    .report-card strong {
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+    .empty-card {
+      padding: 18px;
+      color: var(--muted);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-strong);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(244, 240, 232, 0.85);
+    }
+    td span {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+    tr:last-child td {
+      border-bottom: 0;
+    }
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+    @media (max-width: 980px) {
+      .metrics, .layout {
+        grid-template-columns: 1fr 1fr;
+      }
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 680px) {
+      .page {
+        padding: 14px 10px 28px;
+      }
+      .hero, .panel, .metric-card {
+        padding: 18px;
+      }
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        white-space: normal;
+      }
+      .leader-card, .report-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <span class="eyebrow">Autoresearch</span>
+      <h1>Numerai Autoresearch</h1>
+      <p>
+        This static dashboard turns the public repo's TSV, CSV, and weekly markdown
+        artifacts into a browsable visual surface. The source of truth stays in the
+        repo, while the HTML layer makes the research loop easier to scan, demo, and share.
+      </p>
+      <div class="hero-links">
+        <a class="primary" href="./research_overview.html">Research Experiments Overview</a>
+        <a href="./2026-W21_weekly_report.html">Latest weekly report</a>
+        <a href="./feature_analysis_report.html">Feature Analysis</a>
+        <a href="../README.md">Read the repo guide</a>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric-card"><span class="metric-label">Best research score</span><strong>0.00727</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
+      <div class="metric-card"><span class="metric-label">Best MMC</span><strong>0.00277</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
+      <div class="metric-card"><span class="metric-label">Best CORR</span><strong>0.01563</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
+      <div class="metric-card"><span class="metric-label">Best Sharpe</span><strong>1.58200</strong><p>wf_dyn_xgboost_ender60</p></div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <h2>Current strategy snapshot</h2>
+        <p>
+          The leading public configuration is <strong>wf_dyn_xgboost_ender60_k120</strong>:
+          a xgboost model on <code>target_ender_60</code>
+          with top-120 dynamic features over a trailing
+          20-era ranking window.
+        </p>
+        <div class="leader-grid">
+          <div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_k120</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</p></div><span>0.00727</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4</p></div><span>0.00714</span></div><div class="leader-card"><div><strong>bayes_k240_lb142_best</strong><p>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</p></div><span>0.00550</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><p>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</p></div><span>0.00535</span></div><div class="leader-card"><div><strong>wf_xgboost_ender60_unique_top12</strong><p>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</p></div><span>0.00525</span></div><div class="leader-card"><div><strong>baseline_ender60</strong><p>non-walkforward; single model on full train</p></div><span>0.00420</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Weekly reports</h2>
+        <p>
+          The public repo keeps its browser-native outputs together in this reports
+          folder. These links open the rendered artifacts directly.
+        </p>
+        <div class="report-grid">
+          <a class="report-card" href="./2026-W21_weekly_report.html"><span>2026-W21 weekly report</span><strong>Open HTML report</strong></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top: 18px;">
+      <h2>Experiment timeline</h2>
+      <p>
+        A quick-reading slice of the retained public ledger. The raw source remains
+        <code>experiments/results.tsv</code>; this view is just a visual index.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Target</th>
+              <th>CORR</th>
+              <th>MMC</th>
+              <th>Runtime</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>wf_dyn_xgboost_ender60</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.01536</td><td>0.00271</td><td>42.6 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_k120</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</span></td><td>target_ender_60</td><td>0.01563</td><td>0.00277</td><td>80.1 min</td></tr><tr><td><strong>bayes_k240_t64_best</strong><br /><span>bayes tuning; 7/10 trials completed; lookback=64; purge=4; top_k=240; trailing=64; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.00714</td><td>0.00140</td><td>16.6 min</td></tr><tr><td><strong>bayes_k240_lb142_best</strong><br /><span>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.01229</td><td>0.00185</td><td>44.6 min</td></tr><tr><td><strong>wf_xgboost_ender60_unique_top12</strong><br /><span>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.01108</td><td>0.00211</td><td>7.5 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.01129</td><td>0.00216</td><td>9.9 min</td></tr><tr><td><strong>wf_xgboost_ender60_recommended_top12</strong><br /><span>walkforward; fixed features; custom recommended_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.00794</td><td>0.00131</td><td>5.6 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_recommended_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom recommended_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.00770</td><td>0.00130</td><td>9.0 min</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footer-note">
+        The site is generated from checked-in artifacts, which keeps it friendly to GitHub,
+        code review, and reproducible local browsing without adding a frontend build step.
+      </p>
+    </section>
+  </div>
+</body>
+</html>

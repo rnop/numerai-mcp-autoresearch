@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "numerai-weekly": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["custom_mcp/server.py"]
+    },
+    "numerai": {
+      "type": "http",
+      "url": "https://api-tournament.numer.ai/mcp",
+      "headers": {
+        "Authorization": "Token <YOUR_NUMERAI_API_TOKEN>"
+      }
+    }
+  }
+}

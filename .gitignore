@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+artifacts/
+data/
+submissions/
+mlruns/
+.mcp.json
+*.log
+*.db
