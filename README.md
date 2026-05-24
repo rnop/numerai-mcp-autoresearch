@@ -1,5 +1,7 @@
 # Numerai MCP + Autoresearch Project
 
+GitHub Pages: [View Research Overview](https://rnop.github.io/numerai-mcp-autoresearch/)
+
 ## Overview
 
 This is an agentic autoresearch and deployment harness for Numerai classic tournament that combines:
