@@ -46,7 +46,9 @@ if _REQUIRED_ENV not in sys.executable:
 from prepare import (
     DATA_VERSION,
     ensure_data,
+    check_validation_era_freshness,
     get_feature_set,
+    refresh_data,
     read_split_custom,
 )
 
@@ -190,6 +192,8 @@ def main() -> None:
     t0 = time.time()
     np.random.seed(SEED)
 
+    refresh_data(include_live=False)
+    check_validation_era_freshness()
     ensure_data(download=True, include_live=False)
 
     feature_pool = build_feature_pool()

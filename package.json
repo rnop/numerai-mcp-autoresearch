@@ -1,0 +1,14 @@
+{
+  "name": "numerai-mcp-autoresearch",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build:mcp-ts": "tsc -p tsconfig.json",
+    "start:mcp-ts": "node custom_mcp/server.js",
+    "check:mcp-ts": "node --check custom_mcp/server.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3"
+  }
+}

@@ -86,7 +86,7 @@ def check_validation_era_freshness() -> None:
         json.dump({"max_era": max_era}, f)
 
 
-def ensure_data(download: bool = True, include_live: bool = True) -> None:
+def _required_dataset_names(include_live: bool = True) -> list[str]:
     required = [
         "features",
         "train",
@@ -97,23 +97,46 @@ def ensure_data(download: bool = True, include_live: bool = True) -> None:
     ]
     if include_live:
         required.extend(["live", "live_benchmarks"])
+    return required
 
-    missing = [name for name in required if not get_data_path(name).exists()]
-    if not missing:
+
+def _download_datasets(dataset_names: list[str]) -> None:
+    if not dataset_names:
         return
-    if not download:
-        missing_files = ", ".join(DATASET_FILES[name] for name in missing)
-        raise FileNotFoundError(
-            f"Missing Numerai data files: {missing_files}. Run `python autoresearch-src/prepare.py` first."
-        )
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     napi = NumerAPI()
-    for name in missing:
+    for name in dataset_names:
         remote = f"{DATA_VERSION}/{DATASET_FILES[name]}"
         local = str(get_data_path(name))
         print(f"Downloading {remote} -> {local}")
         napi.download_dataset(remote, local)
+
+
+def ensure_data(
+    download: bool = True,
+    include_live: bool = True,
+    force_refresh: bool = False,
+) -> None:
+    required = _required_dataset_names(include_live=include_live)
+
+    missing = [name for name in required if not get_data_path(name).exists()]
+    if not missing and not force_refresh:
+        return
+    if not download:
+        target_names = missing or required
+        missing_files = ", ".join(DATASET_FILES[name] for name in target_names)
+        raise FileNotFoundError(
+            f"Missing Numerai data files: {missing_files}. Run `python autoresearch-src/prepare.py` first."
+        )
+
+    refresh_names = required if force_refresh else missing
+    _download_datasets(refresh_names)
+
+
+def refresh_data(include_live: bool = True, dataset_names: list[str] | None = None) -> None:
+    target_names = dataset_names or _required_dataset_names(include_live=include_live)
+    _download_datasets(target_names)
 
 
 def load_feature_metadata(require_all: bool = False) -> dict:
@@ -396,10 +419,19 @@ def main() -> None:
         action="store_true",
         help="Print a brief dataset summary after checking data.",
     )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Re-download the required datasets even if local parquet files already exist.",
+    )
     args = parser.parse_args()
 
     try:
-        ensure_data(download=not args.check, include_live=not args.skip_live)
+        ensure_data(
+            download=not args.check,
+            include_live=not args.skip_live,
+            force_refresh=args.refresh,
+        )
         print("Numerai data is ready.")
     except FileNotFoundError as exc:
         print(str(exc))

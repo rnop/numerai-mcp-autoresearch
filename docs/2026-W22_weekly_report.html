@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Numerai Weekly Report - 2026-W22</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f3ec;
+      --paper: rgba(255, 252, 246, 0.84);
+      --paper-strong: #fffdf9;
+      --ink: #161514;
+      --muted: #615a52;
+      --line: rgba(123, 107, 83, 0.18);
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --accent-soft: rgba(15, 118, 110, 0.14);
+      --shadow: 0 20px 50px rgba(61, 47, 25, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(180, 83, 9, 0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 30%),
+        linear-gradient(180deg, #efe6d6 0%, var(--bg) 38%, #f4efe7 100%);
+    }
+    a {
+      color: inherit;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 26px 18px 48px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,248,237,0.94));
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      border-radius: 28px;
+      padding: 30px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.24), transparent 70%);
+    }
+    .eyebrow {
+      display: inline-block;
+      padding: 0.4rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.76rem;
+    }
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .hero-top a {
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 0.7rem 1rem;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.74);
+      white-space: nowrap;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .hero-links a {
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 0.85rem 1.1rem;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+    }
+    .hero-links a.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .report-panel-wide {
+      grid-column: 1 / -1;
+    }
+    .report-panel > :last-child,
+    .hero > :last-child {
+      margin-bottom: 0;
+    }
+    h1, h2, h3 {
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(2rem, 3.2vw, 3.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+      max-width: none;
+      white-space: nowrap;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 1.15rem;
+    }
+    p, li, td, th, blockquote {
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+    }
+    ul {
+      margin: 0 0 18px 1.2rem;
+      padding: 0;
+    }
+    li + li { margin-top: 6px; }
+    hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 22px 0;
+    }
+    code {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      background: rgba(244, 240, 232, 0.85);
+      border-radius: 6px;
+      padding: 0.15rem 0.35rem;
+      font-size: 0.95em;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    blockquote {
+      margin: 18px 0;
+      padding: 0 0 0 16px;
+      border-left: 4px solid var(--accent-soft);
+      color: var(--muted);
+      background: rgba(255,255,255,0.28);
+      border-radius: 0 12px 12px 0;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 18px 0 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-strong);
+      max-width: 100%;
+    }
+    .training-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .training-table {
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 0;
+      table-layout: fixed;
+    }
+    th, td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    th {
+      background: rgba(244, 240, 232, 0.85);
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    strong {
+      color: var(--ink);
+    }
+    .report-hero p:first-of-type {
+      font-size: 1.02rem;
+    }
+    tr:last-child td {
+      border-bottom: 0;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .training-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 680px) {
+      .page {
+        padding: 14px 10px 28px;
+      }
+      .hero, .panel {
+        padding: 18px;
+      }
+      .hero-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      h1 {
+        white-space: normal;
+      }
+      .hero-links a {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero report-hero">
+      <div class="hero-top">
+        <span class="eyebrow">Weekly Report</span>
+      </div>
+      <header class="report-hero"><h1 id="numerai-weekly-report-2026-w22-live-era-1217">Numerai Weekly Report — 2026-W22 | Live Era 1217</h1>
+<p><strong>Model:</strong> tailspin | <strong>Built:</strong> 2026-05-31 | <strong>Era window:</strong> 1075 – 1216 | <strong>Live submission era:</strong> 1217</p></header>
+      <div class="hero-links">
+        <a href="./index.html">Research Experiments Overview</a>
+        <a class="primary" href="./2026-W22_weekly_report.html">Latest weekly report</a>
+        <a href="./feature_analysis_report.html">Feature Analysis</a>
+      </div>
+    </section>
+    <div class="layout report-layout"><section class="panel report-panel report-panel-wide"><h2 id="feature-changes-vs-previous-week">Feature Changes vs Previous Week</h2><blockquote><p>Previous build: <strong>2026-05-31</strong> — era window 1074 – 1215</p></blockquote>
+<div class="table-wrap"><table><thead><tr><th></th><th>Count</th></tr></thead><tbody><tr><td>Total features (current)</td><td>60</td></tr><tr><td>Added this week</td><td>4</td></tr><tr><td>Removed this week</td><td>4</td></tr><tr><td>Retained</td><td>56</td></tr></tbody></table></div>
+<p><strong>Added</strong> (4 features)</p>
+<div class="table-wrap"><table><thead><tr><th>Group</th><th>Count</th><th>Sample Features</th></tr></thead><tbody><tr><td>faith</td><td>2</td><td><code>feature_ropy_eurythmical_genera</code>, <code>feature_wary_unverified_drip</code></td></tr><tr><td>intelligence</td><td>2</td><td><code>feature_melismatic_daily_freak</code>, <code>feature_substitutive_lacerated_souchong</code></td></tr></tbody></table></div>
+<p><strong>Removed</strong> (4 features)</p>
+<div class="table-wrap"><table><thead><tr><th>Group</th><th>Count</th><th>Sample Features</th></tr></thead><tbody><tr><td>faith</td><td>3</td><td><code>feature_indivisible_mortgaged_enterectomy</code>, <code>feature_succinct_indusiate_surfacing</code>, <code>feature_unimpressionable_palish_elegit</code></td></tr><tr><td>strength</td><td>1</td><td><code>feature_expansile_encyclopaedic_chortler</code></td></tr></tbody></table></div>
+<p><strong>Retained</strong> (56 features)</p>
+<div class="table-wrap"><table><thead><tr><th>Group</th><th>Count</th><th>Sample Features</th></tr></thead><tbody><tr><td>extra</td><td>5</td><td><code>feature_gravitational_xeromorphic_myxoma</code>, <code>feature_imminent_unobserved_lengthening</code>, <code>feature_stalworth_rotund_inflammability</code>, <code>feature_tempered_devouring_izzard</code>, +1 more</td></tr><tr><td>faith</td><td>31</td><td><code>feature_aerodynamical_exhibitive_keyword</code>, <code>feature_attachable_martinique_beg</code>, <code>feature_consecrate_untaxed_alexia</code>, <code>feature_corrigible_petalled_presbyopia</code>, +27 more</td></tr><tr><td>intelligence</td><td>9</td><td><code>feature_advised_subdural_toadflax</code>, <code>feature_capreolate_philharmonic_mazzard</code>, <code>feature_closer_sluttish_revealing</code>, <code>feature_esemplastic_droopier_scad</code>, +5 more</td></tr><tr><td>strength</td><td>5</td><td><code>feature_braided_neighbourly_fairyhood</code>, <code>feature_discrete_bicuspidate_bricole</code>, <code>feature_diversified_feticidal_ousting</code>, <code>feature_horsier_ophidian_snoozer</code>, +1 more</td></tr><tr><td>wisdom</td><td>6</td><td><code>feature_muscly_splintery_stope</code>, <code>feature_probative_jolliest_february</code>, <code>feature_superfetate_typographical_two</code>, <code>feature_tongued_tricarpellary_inge</code>, +2 more</td></tr></tbody></table></div></section><section class="panel report-panel"><h2 id="target-analysis">Target Analysis</h2><p><strong>Current target:</strong> <code>target_ender_60</code></p>
+<p>This model is trained on <code>target_ender_60</code> as established by the v5.2 feature analysis. This target was selected because it provides the best generalization for MMC in walk-forward testing.</p>
+<blockquote><p>A dynamic target recommendation system is planned for a future update. Until then, <code>target_ender_60</code> remains the fixed default.</p></blockquote></section><section class="panel report-panel"><h2 id="top-statistics">Top Statistics</h2><p><strong>Model Snapshot</strong></p>
+<div class="table-wrap"><table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Live training target</td><td><code>target_ender_60</code></td></tr><tr><td>Validation target</td><td><code>target_ender_20</code></td></tr><tr><td>MMC benchmark</td><td><code>v52_lgbm_ender20</code></td></tr><tr><td>Training: CORR mean</td><td>0.02167</td></tr><tr><td>Training: MMC mean</td><td>0.00468</td></tr><tr><td>Training Sharpe</td><td>1.707</td></tr><tr><td>Validation: CORR mean</td><td>0.02170</td></tr><tr><td>Validation: MMC mean</td><td>0.00508</td></tr><tr><td>Validation Sharpe</td><td>2.667</td></tr></tbody></table></div></section><section class="panel report-panel"><h2 id="artifact-details">Artifact Details</h2><div class="table-wrap"><table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Built date</td><td>2026-05-31</td></tr><tr><td>Model type</td><td>XGBoost (GPU)</td></tr><tr><td>Best iteration</td><td>848</td></tr><tr><td>Wall clock time</td><td>63.3s</td></tr><tr><td>Pickle size</td><td>0.77 MB</td></tr></tbody></table></div></section><section class="panel report-panel report-panel-wide"><h2 id="training-configuration">Training Configuration</h2><div class="training-grid"><div class="table-wrap training-table"><table><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td>Target</td><td><code>target_ender_60</code></td></tr><tr><td>Era window</td><td>1075 – 1216</td></tr><tr><td>Era count</td><td>142</td></tr><tr><td>Lookback eras</td><td>142</td></tr><tr><td>Trailing eras (feature ranking)</td><td>20</td></tr><tr><td>Top-K features selected</td><td>60</td></tr></tbody></table></div><div class="table-wrap training-table"><table><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody><tr><td>Feature pool size</td><td>699</td></tr><tr><td>Fit eras</td><td>132</td></tr><tr><td>Early stopping eras</td><td>10</td></tr><tr><td>Best iteration</td><td>848</td></tr><tr><td>Benchmark neutralization</td><td>0.1 vs <code>v52_lgbm_ender20</code></td></tr></tbody></table></div></div>
+<hr />
+<p>_Generated by numerai-weekly MCP on 2026-05-31 09:50._</p></section></div>
+  </div>
+</body>
+</html>

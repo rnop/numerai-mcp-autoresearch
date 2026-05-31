@@ -11,7 +11,7 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
 - Feature analysis with dynamic per-era feature selection
 - Bayesian optimization with Optuna and MLflow-backed experiment tracking
 - Walk-forward training and time-series cross-validation
-- Custom MCP server + Numerai's official MCP server with agent skills for weekly retraining, data drift, predictions, and submissions
+- Custom MCP server in both Python and TypeScript + Numerai's official MCP server with agent skills for weekly retraining, data drift, predictions, and submissions
 - Structured weekly submissions with generated HTML summary reports
 
 ## Main Files
@@ -33,6 +33,8 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
   Operational live-model packaging and weekly retrain entrypoint
 - `custom_mcp/server.py`:
   Operational MCP layer for weekly retraining, feature-diffing, summaries, and report generation
+- `custom_mcp/server.ts` / `custom_mcp/server.js`:
+  TypeScript MCP layer that mirrors the weekly operational tools while reusing Python helpers for model-specific work
 - `custom_mcp/site_builder.py`:
   HTML report and dashboard generator for weekly and research outputs
 - `docs/index.html`:
@@ -71,7 +73,7 @@ flowchart TD
 
     subgraph Live["LIVE DEPLOYMENT"]
         direction TB
-        L["Custom MCP server<br/>custom_mcp/server.py"]
+        L["Custom MCP server<br/>custom_mcp/server.py or custom_mcp/server.js"]
         J["Weekly Retrain Pipeline<br/>retrain / packaging / report generation / submission artifact"]
         R["Official Numerai MCP Server<br/>model upload + tournament operations"]
         S["Numerai Tournament<br/>Submissions"]
@@ -119,6 +121,30 @@ The orchestration prompt connects the agent to the custom MCP + Numerai's offici
 ```md
 Follow the instructions in `WEEKLY_SUBMISSION_PROMPT.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
 ```
+
+## TypeScript MCP server
+
+The repo now includes a sibling TypeScript implementation of the weekly MCP server:
+
+- Source: `custom_mcp/server.ts`
+- Runnable JS artifact: `custom_mcp/server.js`
+- Python bridge for parquet/report helpers: `custom_mcp/ts_bridge.py`
+
+If you want to point an MCP client at the TypeScript version instead of the Python version, use:
+
+```json
+{
+  "mcpServers": {
+    "numerai-weekly-ts": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["custom_mcp/server.js"]
+    }
+  }
+}
+```
+
+The TypeScript server keeps the Python training and report internals intact. It handles MCP transport, tool routing, process orchestration, metadata diffs, and report assembly in TypeScript, then calls Python only where the project already depends on Python-specific runtime behavior.
 
 ## Weekly Reports
 

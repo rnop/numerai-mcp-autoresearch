@@ -60,6 +60,7 @@ if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
 from custom_mcp.site_builder import build_report_html
+from prepare import refresh_data
 
 mcp = FastMCP("numerai-weekly")
 
@@ -305,6 +306,9 @@ def run_weekly_retrain(force: bool = False) -> dict:
     """
     SUBMISSIONS_DIR.mkdir(exist_ok=True)
     REPORTS_DIR.mkdir(exist_ok=True)
+
+    # Refresh labeled data before checking whether the era window advanced.
+    refresh_data(include_live=False, dataset_names=["validation"])
 
     # Era-window guard: skip if data hasn't advanced since the last retrain.
     if not force:
