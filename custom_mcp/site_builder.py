@@ -248,6 +248,8 @@ def _layout_weekly_report_html(body: str) -> str:
         heading = parts[idx]
         content = parts[idx + 1] if idx + 1 < len(parts) else ""
         content = re.sub(trailing_rule_pattern, "", content.strip())
+        if 'id="feature-changes-vs-previous-week"' in heading:
+            content = _collapse_feature_change_tables(content)
         if 'id="training-configuration"' in heading:
             content = _split_training_configuration_table(content)
         section_class = (
@@ -295,6 +297,28 @@ def _split_training_configuration_table(content: str) -> str:
         "</div>"
     )
     return content[: table_match.start()] + split_tables + content[table_match.end() :]
+
+
+def _collapse_feature_change_tables(content: str) -> str:
+    pattern = re.compile(
+        r'<p><strong>(Added|Removed|Retained)</strong>\s*\((\d+)\s+features\)</p>\s*'
+        r'(<div class="table-wrap"><table>.*?</table></div>)',
+        flags=re.DOTALL,
+    )
+
+    def repl(match: re.Match[str]) -> str:
+        label = match.group(1)
+        count = match.group(2)
+        table_html = match.group(3)
+        open_attr = " open" if label == "Added" else ""
+        return (
+            f'<details class="feature-change-dropdown"{open_attr}>'
+            f'<summary>{html.escape(label)} ({html.escape(count)} features)</summary>'
+            f"{table_html}"
+            "</details>"
+        )
+
+    return pattern.sub(repl, content)
 
 
 def _nav_links_html(active: str = "") -> str:
@@ -496,6 +520,40 @@ def build_report_html(title: str, markdown_text: str) -> str:
       font-size: 0.95em;
       white-space: normal;
       overflow-wrap: anywhere;
+    }}
+    .feature-change-dropdown {{
+      margin: 16px 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.45);
+      overflow: hidden;
+    }}
+    .feature-change-dropdown summary {{
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 18px;
+      font-weight: 700;
+      color: var(--ink);
+      background: rgba(244, 240, 232, 0.7);
+    }}
+    .feature-change-dropdown summary::-webkit-details-marker {{
+      display: none;
+    }}
+    .feature-change-dropdown summary::after {{
+      content: "+";
+      float: right;
+      color: var(--accent);
+      font-weight: 800;
+    }}
+    .feature-change-dropdown[open] summary::after {{
+      content: "-";
+    }}
+    .feature-change-dropdown .table-wrap {{
+      margin: 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      background: var(--paper-strong);
     }}
     blockquote {{
       margin: 18px 0;
@@ -1452,10 +1510,14 @@ def _build_dashboard_html() -> str:
         reverse=True,
     )[:6]
 
-    weekly_paths = [
-        p for p in report_paths
-        if "_weekly_report" in p.stem and "example" not in p.stem
-    ]
+    weekly_paths = sorted(
+        [
+            p for p in report_paths
+            if "_weekly_report" in p.stem and "example" not in p.stem
+        ],
+        key=lambda p: p.name,
+        reverse=True,
+    )
     report_cards = []
     for path in weekly_paths:
         report_cards.append(
@@ -1859,6 +1921,13 @@ def _build_dashboard_html() -> str:
 """
 
 
+def build_dashboard() -> Path:
+    REPORTS_DIR.mkdir(exist_ok=True)
+    dashboard_path = REPORTS_DIR / REPORT_INDEX_NAME
+    dashboard_path.write_text(_build_dashboard_html(), encoding="utf-8")
+    return dashboard_path
+
+
 def render_report_file(markdown_path: Path) -> Path:
     markdown_text = markdown_path.read_text(encoding="utf-8")
     html_path = markdown_path.with_suffix(".html")
@@ -1881,8 +1950,7 @@ def build_site() -> dict[str, list[str] | str]:
     for markdown_path in sorted(REPORTS_DIR.glob("*.md")):
         generated_reports.append(str(render_report_file(markdown_path)))
 
-    dashboard_path = REPORTS_DIR / REPORT_INDEX_NAME
-    dashboard_path.write_text(_build_dashboard_html(), encoding="utf-8")
+    dashboard_path = build_dashboard()
 
     return {
         "dashboard": str(dashboard_path),

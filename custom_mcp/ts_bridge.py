@@ -20,7 +20,7 @@ from custom_mcp.server import (  # noqa: E402
     _current_max_labeled_era,
     _load_meta,
 )
-from custom_mcp.site_builder import build_report_html  # noqa: E402
+from custom_mcp.site_builder import build_dashboard, build_report_html  # noqa: E402
 from prepare import refresh_data  # noqa: E402
 
 
@@ -63,6 +63,11 @@ def main() -> None:
         html_text = build_report_html(title, markdown_text)
         html_path.write_text(html_text, encoding="utf-8")
         _emit({"html_path": str(html_path)})
+        return
+
+    if command == "build-dashboard":
+        dashboard_path = build_dashboard()
+        _emit({"dashboard": str(dashboard_path)})
         return
 
     raise SystemExit(f"Unknown command: {command}")
