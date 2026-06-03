@@ -77,6 +77,10 @@ function formatMetric(value: unknown, digits = 5): string {
   return Number.isFinite(numeric) ? numeric.toFixed(digits) : "n/a";
 }
 
+function safeTableCell(value: unknown): string {
+  return String(value ?? "").replaceAll("|", "").trim().replace(/\s+/g, " ");
+}
+
 function formatMetricBlockRows(title: string, rows: Array<[string, string]>): string {
   if (rows.length === 0) {
     return "";
@@ -184,6 +188,10 @@ function computeLiveReportMetrics(metaPath: string): Record<string, Json> {
   return pythonJson(["compute-live-report-metrics", metaPath]);
 }
 
+function computeLivePredictionDiagnostics(metaPath: string): Record<string, Json> {
+  return pythonJson(["compute-live-diagnostics", metaPath]);
+}
+
 function renderReportHtml(title: string, markdownPath: string, htmlPath: string): void {
   pythonJson(["render-report-html", title, markdownPath, htmlPath]);
 }
@@ -279,6 +287,7 @@ function checkRetrainStatus(): ToolResponse {
 
   const metaPath = metas[metas.length - 1];
   const meta = loadJson(metaPath);
+  const liveDiagnostics = computeLivePredictionDiagnostics(metaPath);
   return {
     status: "completed",
     era_window: `${meta.era_window_start} - ${meta.era_window_end}`,
@@ -288,6 +297,7 @@ function checkRetrainStatus(): ToolResponse {
     wall_clock_seconds: meta.wall_clock_seconds ?? null,
     pickle_size_mb: meta.pickle_size_mb ?? null,
     meta_path: metaPath,
+    live_diagnostics: liveDiagnostics,
     log_tail: logTail,
   };
 }
@@ -300,6 +310,7 @@ function getTrainingSummary(): ToolResponse {
   const metaPath = metas[metas.length - 1];
   const meta = loadJson(metaPath);
   const pklFile = path.basename(metaPath).replace("_meta.json", ".pkl");
+  const liveDiagnostics = computeLivePredictionDiagnostics(metaPath);
   return {
     built_date: meta.built_date ?? null,
     target: meta.target ?? null,
@@ -318,6 +329,21 @@ function getTrainingSummary(): ToolResponse {
     wall_clock_seconds: meta.wall_clock_seconds ?? null,
     pkl_file: pklFile,
     pkl_path: path.join(SUBMISSIONS_DIR, pklFile),
+    live_diagnostics: liveDiagnostics,
+  };
+}
+
+function checkLivePredictions(): ToolResponse {
+  const metas = sortedMetas();
+  if (metas.length === 0) {
+    return { error: "No metadata JSON found in submissions/. Run run_weekly_retrain first." };
+  }
+  const metaPath = metas[metas.length - 1];
+  const diagnostics = computeLivePredictionDiagnostics(metaPath);
+  return {
+    ...diagnostics,
+    meta_path: metaPath,
+    pkl_path: path.join(SUBMISSIONS_DIR, path.basename(metaPath).replace("_meta.json", ".pkl")),
   };
 }
 
@@ -389,6 +415,7 @@ function generateWeeklyReport(): ToolResponse {
   const currMetaPath = metas[metas.length - 1];
   const currMeta = loadJson(currMetaPath);
   const reportMetrics = computeLiveReportMetrics(currMetaPath);
+  const liveDiagnostics = computeLivePredictionDiagnostics(currMetaPath);
   const livePredictionEra = currentLivePredictionEra(currMetaPath);
   const now = new Date();
   const iso = isoWeek(now);
@@ -456,6 +483,42 @@ function generateWeeklyReport(): ToolResponse {
 
   const titleSuffix = livePredictionEra ? ` | Live Era ${livePredictionEra}` : "";
   const liveEraLine = livePredictionEra ? ` | **Live submission era:** ${livePredictionEra}` : "";
+  const liveDiagnosticRows: Array<[string, string]> = [
+    ["Verdict", String(liveDiagnostics.status ?? "n/a").toUpperCase()],
+    ["Ready for submission", liveDiagnostics.ready_for_submission ? "yes" : "no"],
+    ["Rows scored", String(liveDiagnostics.row_count ?? "n/a")],
+    ["Prediction std", formatMetric(liveDiagnostics.prediction_std)],
+    ["Prediction p99-p01 spread", formatMetric(liveDiagnostics.prediction_spread_p99_p01)],
+    ["Duplicate fraction", formatMetric(liveDiagnostics.duplicate_fraction)],
+    ["Benchmark corr", formatMetric(liveDiagnostics.benchmark_corr)],
+  ];
+  const liveDiagnosticChecks = Array.isArray(liveDiagnostics.checks) && liveDiagnostics.checks.length > 0
+    ? liveDiagnostics.checks
+        .map((row) => {
+          const item = row as Record<string, Json>;
+          return `| ${safeTableCell(item.name ?? "check")} | ${safeTableCell(String(item.status ?? "n/a").toUpperCase())} | ${safeTableCell(item.detail ?? "")} |`;
+        })
+        .join("\n")
+    : "| n/a | n/a | No live diagnostic checks were generated. |";
+  const liveDiagnosticArtifacts =
+    liveDiagnostics.artifacts && typeof liveDiagnostics.artifacts === "object"
+      ? (liveDiagnostics.artifacts as Record<string, Json>)
+      : {};
+  const plotPath = typeof liveDiagnosticArtifacts.plot_path === "string" ? liveDiagnosticArtifacts.plot_path : null;
+  const plotRel = plotPath ? path.relative(REPORTS_DIR, plotPath).replace(/\\/g, "/") : null;
+  const csvPath = typeof liveDiagnosticArtifacts.csv_path === "string" ? liveDiagnosticArtifacts.csv_path : null;
+  const csvRel = csvPath ? path.relative(REPORTS_DIR, csvPath).replace(/\\/g, "/") : null;
+  const summaryPath = typeof liveDiagnosticArtifacts.summary_path === "string" ? liveDiagnosticArtifacts.summary_path : null;
+  const summaryRel = summaryPath ? path.relative(REPORTS_DIR, summaryPath).replace(/\\/g, "/") : null;
+  const liveVisualizationBlock = plotRel
+    ? `
+### Visualization
+
+![Live prediction QA plot](${plotRel})
+
+The chart combines the raw histogram, sorted prediction curve, benchmark exposure scatter, and percentile-ranked distribution for the current live batch.
+`
+    : "";
 
   const report = `# Numerai Weekly Report - ${weekLabel}${titleSuffix}
 
@@ -481,6 +544,24 @@ was selected because it provides the best generalization for MMC in walk-forward
 ## Top Statistics
 
 ${topSnapshot}
+
+---
+
+## Live Prediction QA
+
+${liveVisualizationBlock}
+
+${formatMetricBlockRows("Distribution Check", liveDiagnosticRows)}
+
+| Check | Status | Details |
+| --- | --- | --- |
+${liveDiagnosticChecks}
+
+| Artifact | Path |
+| --- | --- |
+| Distribution plot | \`${String(plotRel ?? liveDiagnosticArtifacts.plot_path ?? "n/a")}\` |
+| Scored CSV | \`${String(csvRel ?? liveDiagnosticArtifacts.csv_path ?? "n/a")}\` |
+| Summary JSON | \`${String(summaryRel ?? liveDiagnosticArtifacts.summary_path ?? "n/a")}\` |
 
 ---
 
@@ -526,6 +607,7 @@ _Generated by numerai-weekly TypeScript MCP on ${formatTimestamp(now)}._
     html_report_path: htmlReportPath,
     dashboard_path: path.join(REPORTS_DIR, "index.html"),
     week: weekLabel,
+    live_diagnostics: liveDiagnostics,
     content: report,
     html_content: fs.readFileSync(htmlReportPath, "utf-8"),
   };
@@ -587,6 +669,15 @@ const TOOLS = [
     },
   },
   {
+    name: "check_live_predictions",
+    description: "Score the current live split with the latest packaged submission model and write QA artifacts into artifacts/.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
     name: "compare_weekly_features",
     description: "Compare the latest selected feature set against the previous run and group additions/removals.",
     inputSchema: {
@@ -614,6 +705,8 @@ function invokeTool(name: string, args: Record<string, Json>): ToolResponse {
       return checkRetrainStatus();
     case "get_training_summary":
       return getTrainingSummary();
+    case "check_live_predictions":
+      return checkLivePredictions();
     case "compare_weekly_features":
       return compareWeeklyFeatures();
     case "generate_weekly_report":

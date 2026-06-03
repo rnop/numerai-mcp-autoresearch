@@ -122,6 +122,8 @@ CUSTOM_FEATURE_SET_LABEL: str | None = None
 EARLY_STOPPING_ERAS = 10
 EARLY_STOPPING_ROUNDS = 50
 
+SEED = 42
+
 XGB_PARAMS = {
     "objective": "reg:squarederror",
     "tree_method": "hist",
@@ -136,10 +138,15 @@ XGB_PARAMS = {
     "reg_lambda": 5.0,
     "gamma": 0.0,
     "max_bin": 128,
+    # Seed lives in the params dict (mirrors make_submission.py) so promoting a
+    # tuned XGB_PARAMS to the live builder carries the seed instead of silently
+    # dropping it. The training loops still override via params["seed"] = seed
+    # for per-run control, so this default is harmless when an explicit seed is
+    # passed.
+    "seed": SEED,
 }
 
 NUM_BOOST_ROUNDS = 2000
-SEED = 42
 SAVE_LIVE_PREDICTIONS = False
 
 LGBM_PARAMS = {

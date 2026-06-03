@@ -15,6 +15,7 @@ if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
 from custom_mcp.server import (  # noqa: E402
+    _compute_live_prediction_diagnostics,
     _compute_live_report_metrics,
     _current_live_prediction_era,
     _current_max_labeled_era,
@@ -47,6 +48,12 @@ def main() -> None:
         meta_path = Path(sys.argv[2])
         meta = _load_meta(meta_path)
         _emit(_compute_live_report_metrics(meta_path, meta))
+        return
+
+    if command == "compute-live-diagnostics":
+        meta_path = Path(sys.argv[2])
+        meta = _load_meta(meta_path)
+        _emit(_compute_live_prediction_diagnostics(meta_path, meta))
         return
 
     if command == "current-live-era":

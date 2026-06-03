@@ -129,6 +129,22 @@ def _inline_markdown(text: str) -> str:
     return escaped
 
 
+def _render_markdown_image(text: str) -> str | None:
+    match = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", text.strip())
+    if not match:
+        return None
+    alt_text = match.group(1).strip()
+    src = match.group(2).strip()
+    caption = _inline_markdown(alt_text) if alt_text else ""
+    figcaption = f"<figcaption>{caption}</figcaption>" if caption else ""
+    return (
+        '<figure class="report-figure">'
+        f'<img src="{html.escape(src, quote=True)}" alt="{html.escape(alt_text, quote=True)}" loading="lazy" />'
+        f"{figcaption}"
+        "</figure>"
+    )
+
+
 def markdown_to_html(markdown_text: str) -> str:
     lines = markdown_text.splitlines()
     chunks: list[str] = []
@@ -172,6 +188,15 @@ def markdown_to_html(markdown_text: str) -> str:
             flush_list()
             flush_blockquote()
             chunks.append("<hr />")
+            i += 1
+            continue
+
+        image_html = _render_markdown_image(stripped)
+        if image_html is not None:
+            flush_paragraph()
+            flush_list()
+            flush_blockquote()
+            chunks.append(image_html)
             i += 1
             continue
 
@@ -570,6 +595,28 @@ def build_report_html(title: str, markdown_text: str) -> str:
       border-radius: 18px;
       background: var(--paper-strong);
       max-width: 100%;
+    }}
+    .report-figure {{
+      margin: 18px 0 24px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.62);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+    }}
+    .report-figure img {{
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(123, 107, 83, 0.14);
+      background: #fff;
+    }}
+    .report-figure figcaption {{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.5;
     }}
     .training-grid {{
       display: grid;

@@ -120,6 +120,11 @@ def _format_metric(value: object, digits: int = 5) -> str:
         return "n/a"
 
 
+def _safe_table_cell(value: object) -> str:
+    text = str(value)
+    return " ".join(text.replace("|", "").split())
+
+
 def _format_metric_block_rows(title: str, rows: list[tuple[str, str]]) -> str:
     if not rows:
         return ""
@@ -252,6 +257,243 @@ def _compute_live_report_metrics(meta_path: Path, meta: dict) -> dict[str, objec
         return report_metrics
     except Exception:
         return {}
+
+
+def _compute_live_prediction_diagnostics(meta_path: Path, meta: dict) -> dict[str, object]:
+    cached = meta.get("live_diagnostics")
+    if isinstance(cached, dict) and cached:
+        return cached
+
+    pkl_path = SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl")
+    if not pkl_path.exists():
+        return {"status": "error", "message": f"Missing pickle artifact: {pkl_path.name}"}
+
+    try:
+        import cloudpickle
+        import numpy as np
+        import pandas as pd
+        from prepare import ensure_data, get_data_path, read_split_custom
+
+        selected_features = list(meta.get("selected_features", []))
+        benchmark_col = str(meta.get("benchmark_col", "v52_lgbm_ender20"))
+
+        ensure_data(download=True, include_live=True)
+        live_features = read_split_custom("live", features=selected_features)
+        live_benchmarks = pd.read_parquet(
+            get_data_path("live_benchmarks"),
+            columns=["id", benchmark_col],
+        )
+
+        if "id" in live_features.columns:
+            scoring = live_features.merge(
+                live_benchmarks,
+                on="id",
+                how="left",
+                validate="one_to_one",
+            )
+        else:
+            scoring = live_features.copy()
+            scoring[benchmark_col] = live_benchmarks[benchmark_col].to_numpy()
+
+        with pkl_path.open("rb") as handle:
+            predict_fn = cloudpickle.load(handle)
+        predictions = predict_fn(scoring[selected_features], scoring[[benchmark_col]])
+        scoring["prediction"] = predictions["prediction"].to_numpy(dtype=np.float64)
+
+        pred = scoring["prediction"].astype(float)
+        bench = scoring[benchmark_col].astype(float)
+        live_eras = sorted(scoring["era"].astype(str).unique().tolist()) if "era" in scoring.columns else []
+        p01 = float(pred.quantile(0.01))
+        p99 = float(pred.quantile(0.99))
+        spread_99_1 = p99 - p01
+        duplicate_fraction = float(1.0 - (pred.nunique() / len(pred)))
+        benchmark_corr = float(pred.corr(bench))
+
+        summary: dict[str, object] = {
+            "status": "pass",
+            "model_era_window": f"{meta.get('era_window_start')}-{meta.get('era_window_end')}",
+            "built_date": meta.get("built_date"),
+            "live_eras": live_eras,
+            "row_count": int(len(scoring)),
+            "prediction_mean": float(pred.mean()),
+            "prediction_std": float(pred.std(ddof=0)),
+            "prediction_min": float(pred.min()),
+            "prediction_p01": p01,
+            "prediction_p05": float(pred.quantile(0.05)),
+            "prediction_median": float(pred.median()),
+            "prediction_p95": float(pred.quantile(0.95)),
+            "prediction_p99": p99,
+            "prediction_max": float(pred.max()),
+            "prediction_skew": float(pred.skew()),
+            "prediction_kurtosis": float(pred.kurt()),
+            "prediction_spread_p99_p01": float(spread_99_1),
+            "unique_predictions": int(pred.nunique()),
+            "duplicate_fraction": duplicate_fraction,
+            "benchmark_col": benchmark_col,
+            "benchmark_corr": benchmark_corr,
+            "artifacts": {},
+            "checks": [],
+        }
+
+        checks: list[dict[str, str]] = []
+
+        def add_check(name: str, status: str, detail: str) -> None:
+            checks.append({"name": name, "status": status, "detail": detail})
+
+        if summary["row_count"] == 0:
+            add_check("row_count", "fail", "Live split produced zero rows.")
+        else:
+            add_check("row_count", "pass", f"Scored {summary['row_count']:,} live rows.")
+
+        pred_std = float(summary["prediction_std"])
+        if not np.isfinite(pred_std):
+            add_check("dispersion", "fail", "Prediction standard deviation is not finite.")
+        elif pred_std < 0.001:
+            add_check("dispersion", "fail", f"Prediction std is only {pred_std:.6f}.")
+        elif pred_std < 0.002:
+            add_check("dispersion", "warn", f"Prediction std is narrow at {pred_std:.6f}.")
+        else:
+            add_check("dispersion", "pass", f"Prediction std is {pred_std:.6f}.")
+
+        if not np.isfinite(spread_99_1):
+            add_check("tail_spread", "fail", "Prediction p99-p01 spread is not finite.")
+        elif spread_99_1 < 0.005:
+            add_check("tail_spread", "fail", f"Prediction p99-p01 spread is only {spread_99_1:.6f}.")
+        elif spread_99_1 < 0.010:
+            add_check("tail_spread", "warn", f"Prediction p99-p01 spread is narrow at {spread_99_1:.6f}.")
+        else:
+            add_check("tail_spread", "pass", f"Prediction p99-p01 spread is {spread_99_1:.6f}.")
+
+        if duplicate_fraction > 0.25:
+            add_check("duplicates", "fail", f"Duplicate prediction fraction is {duplicate_fraction:.3%}.")
+        elif duplicate_fraction > 0.05:
+            add_check("duplicates", "warn", f"Duplicate prediction fraction is {duplicate_fraction:.3%}.")
+        else:
+            add_check("duplicates", "pass", f"Duplicate prediction fraction is {duplicate_fraction:.3%}.")
+
+        abs_benchmark_corr = abs(benchmark_corr) if np.isfinite(benchmark_corr) else np.inf
+        if not np.isfinite(benchmark_corr):
+            add_check("benchmark_corr", "fail", "Correlation to the benchmark model is not finite.")
+        elif abs_benchmark_corr > 0.8:
+            add_check("benchmark_corr", "fail", f"abs corr(pred, {benchmark_col}) is {abs_benchmark_corr:.3f}.")
+        elif abs_benchmark_corr > 0.5:
+            add_check("benchmark_corr", "warn", f"abs corr(pred, {benchmark_col}) is {abs_benchmark_corr:.3f}.")
+        else:
+            add_check("benchmark_corr", "pass", f"abs corr(pred, {benchmark_col}) is {abs_benchmark_corr:.3f}.")
+
+        severity_order = {"pass": 0, "warn": 1, "fail": 2}
+        summary["checks"] = checks
+        summary["status"] = max(checks, key=lambda item: severity_order[item["status"]])["status"]
+        summary["ready_for_submission"] = summary["status"] != "fail"
+
+        artifacts_dir = PROJECT_ROOT / "artifacts"
+        artifacts_dir.mkdir(exist_ok=True)
+        stem = f"train_{meta.get('era_window_start')}_{meta.get('era_window_end')}"
+        plot_path = artifacts_dir / f"live_prediction_distribution_{stem}.png"
+        csv_path = artifacts_dir / f"live_predictions_{stem}.csv"
+        json_path = artifacts_dir / f"live_prediction_distribution_{stem}_summary.json"
+
+        export_cols = [col for col in ["id", "era", benchmark_col, "prediction"] if col in scoring.columns]
+        scoring[export_cols].to_csv(csv_path, index=False)
+
+        summary["artifacts"] = {
+            "plot_path": str(plot_path),
+            "csv_path": str(csv_path),
+            "summary_path": str(json_path),
+        }
+        summary["plot_generated"] = False
+
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            from matplotlib import pyplot as plt
+
+            rank_pct = pred.rank(method="average", pct=True)
+            sorted_pred = np.sort(pred.to_numpy(dtype=np.float64))
+            live_era_label = live_eras[0] if len(live_eras) == 1 else ", ".join(live_eras[:3])
+
+            fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+            fig.suptitle(
+                "Live prediction distribution | "
+                f"model train eras {meta.get('era_window_start')}-{meta.get('era_window_end')} | "
+                f"live era {live_era_label or 'unknown'}",
+                fontsize=14,
+            )
+
+            ax = axes[0, 0]
+            ax.hist(pred, bins=50, color="#7aa6c2", edgecolor="white", linewidth=0.4)
+            ax.axvline(p01, color="#d1495b", linestyle="--", linewidth=1)
+            ax.axvline(float(summary["prediction_median"]), color="#222222", linestyle="--", linewidth=1)
+            ax.axvline(p99, color="#d1495b", linestyle="--", linewidth=1)
+            ax.set_title("Raw prediction histogram")
+            ax.set_xlabel("prediction")
+            ax.set_ylabel("count")
+
+            ax = axes[0, 1]
+            ax.plot(
+                np.linspace(0, 1, len(sorted_pred), endpoint=False),
+                sorted_pred,
+                color="#1d3557",
+                linewidth=1.6,
+            )
+            ax.set_title("Sorted prediction curve")
+            ax.set_xlabel("rank percentile")
+            ax.set_ylabel("prediction")
+
+            ax = axes[1, 0]
+            sample = scoring[[benchmark_col, "prediction"]].dropna()
+            if len(sample) > 12000:
+                sample = sample.sample(12000, random_state=42)
+            ax.scatter(
+                sample[benchmark_col],
+                sample["prediction"],
+                s=8,
+                alpha=0.25,
+                color="#457b9d",
+                edgecolors="none",
+            )
+            ax.set_title(f"Prediction vs {benchmark_col} (corr={benchmark_corr:.3f})")
+            ax.set_xlabel(benchmark_col)
+            ax.set_ylabel("prediction")
+
+            ax = axes[1, 1]
+            ax.hist(rank_pct, bins=20, color="#8d99ae", edgecolor="white", linewidth=0.4)
+            ax.set_title("Percentile-ranked predictions")
+            ax.set_xlabel("rank percentile")
+            ax.set_ylabel("count")
+            text = (
+                f"rows: {summary['row_count']:,}\n"
+                f"mean/std: {summary['prediction_mean']:.5f} / {pred_std:.5f}\n"
+                f"p01/p50/p99: {p01:.5f} / {summary['prediction_median']:.5f} / {p99:.5f}\n"
+                f"spread(99-1): {spread_99_1:.5f}\n"
+                f"dup frac: {duplicate_fraction:.6f}\n"
+                f"bench corr: {benchmark_corr:.3f}"
+            )
+            ax.text(
+                0.02,
+                0.98,
+                text,
+                transform=ax.transAxes,
+                va="top",
+                ha="left",
+                fontsize=10,
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.85, "edgecolor": "#cccccc"},
+            )
+
+            plt.tight_layout(rect=[0, 0, 1, 0.96])
+            fig.savefig(plot_path, dpi=160, bbox_inches="tight")
+            plt.close(fig)
+            summary["plot_generated"] = True
+        except Exception as exc:
+            summary["plot_error"] = str(exc)
+
+        json_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        meta["live_diagnostics"] = summary
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        return summary
+    except Exception as exc:
+        return {"status": "error", "message": str(exc), "ready_for_submission": False}
 
 
 
@@ -407,6 +649,7 @@ def check_retrain_status() -> dict:
         }
 
     meta = _load_meta(metas[-1])
+    live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], meta)
 
     # Detect failure via returncode hint in log (make_submission prints non-zero exit).
     log_text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
@@ -423,6 +666,7 @@ def check_retrain_status() -> dict:
         "wall_clock_seconds": meta["wall_clock_seconds"],
         "pickle_size_mb": meta["pickle_size_mb"],
         "meta_path": str(metas[-1]),
+        "live_diagnostics": live_diagnostics,
         "log_tail": log_tail,
     }
 
@@ -439,6 +683,7 @@ def get_training_summary() -> dict:
         return {"error": "No metadata JSON found in submissions/. Run run_weekly_retrain first."}
 
     meta = _load_meta(metas[-1])
+    live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], meta)
 
     return {
         "built_date": meta.get("built_date"),
@@ -458,7 +703,29 @@ def get_training_summary() -> dict:
         "wall_clock_seconds": meta.get("wall_clock_seconds"),
         "pkl_file": metas[-1].stem.replace("_meta", "") + ".pkl",
         "pkl_path": str(SUBMISSIONS_DIR / (metas[-1].stem.replace("_meta", "") + ".pkl")),
+        "live_diagnostics": live_diagnostics,
     }
+
+
+@mcp.tool()
+def check_live_predictions() -> dict:
+    """
+    Score the current live split with the latest packaged submission model and
+    write distribution QA artifacts into artifacts/.
+
+    Returns a pass / warn / fail verdict, summary distribution stats, and
+    artifact paths for the plot, CSV, and cached JSON summary.
+    """
+    metas = _sorted_metas()
+    if not metas:
+        return {"error": "No metadata JSON found in submissions/. Run run_weekly_retrain first."}
+
+    meta_path = metas[-1]
+    meta = _load_meta(meta_path)
+    diagnostics = _compute_live_prediction_diagnostics(meta_path, meta)
+    diagnostics["meta_path"] = str(meta_path)
+    diagnostics["pkl_path"] = str(SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl"))
+    return diagnostics
 
 
 @mcp.tool()
@@ -486,8 +753,6 @@ def compare_weekly_features() -> dict:
 
     prev_meta = _load_meta(metas[-2])
     curr_meta = _load_meta(metas[-1])
-    report_metrics = _compute_live_report_metrics(metas[-1], curr_meta)
-    live_prediction_era = _current_live_prediction_era(curr_meta)
 
     prev_set = set(prev_meta.get("selected_features", []))
     curr_set = set(curr_meta.get("selected_features", []))
@@ -537,6 +802,7 @@ def generate_weekly_report() -> dict:
 
     curr_meta = _load_meta(metas[-1])
     report_metrics = _compute_live_report_metrics(metas[-1], curr_meta)
+    live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], curr_meta)
     live_prediction_era = _current_live_prediction_era(curr_meta)
     now = datetime.now()
     iso = now.isocalendar()
@@ -605,6 +871,47 @@ def generate_weekly_report() -> dict:
     top_snapshot = _format_metric_block_rows("Model Snapshot", top_snapshot_rows)
     title_suffix = f" | Live Era {live_prediction_era}" if live_prediction_era else ""
     live_era_line = f" | **Live submission era:** {live_prediction_era}" if live_prediction_era else ""
+    live_diag_rows = [
+        ("Verdict", str(live_diagnostics.get("status", "n/a")).upper()),
+        ("Ready for submission", "yes" if live_diagnostics.get("ready_for_submission") else "no"),
+        ("Rows scored", str(live_diagnostics.get("row_count", "n/a"))),
+        ("Prediction std", _format_metric(live_diagnostics.get("prediction_std"))),
+        ("Prediction p99-p01 spread", _format_metric(live_diagnostics.get("prediction_spread_p99_p01"))),
+        ("Duplicate fraction", _format_metric(live_diagnostics.get("duplicate_fraction"))),
+        ("Benchmark corr", _format_metric(live_diagnostics.get("benchmark_corr"))),
+    ]
+    live_diag_checks = "\n".join(
+        f"| {_safe_table_cell(row.get('name', 'check'))} | {_safe_table_cell(str(row.get('status', 'n/a')).upper())} | {_safe_table_cell(row.get('detail', ''))} |"
+        for row in live_diagnostics.get("checks", [])
+        if isinstance(row, dict)
+    ) or "| n/a | n/a | No live diagnostic checks were generated. |"
+    live_diag_artifacts = live_diagnostics.get("artifacts", {}) if isinstance(live_diagnostics.get("artifacts"), dict) else {}
+    plot_path = live_diag_artifacts.get("plot_path")
+    plot_rel = (
+        Path(os.path.relpath(str(plot_path), REPORTS_DIR)).as_posix()
+        if plot_path
+        else None
+    )
+    csv_path = live_diag_artifacts.get("csv_path")
+    csv_rel = (
+        Path(os.path.relpath(str(csv_path), REPORTS_DIR)).as_posix()
+        if csv_path
+        else None
+    )
+    summary_path = live_diag_artifacts.get("summary_path")
+    summary_rel = (
+        Path(os.path.relpath(str(summary_path), REPORTS_DIR)).as_posix()
+        if summary_path
+        else None
+    )
+    live_visualization_block = (
+        "\n### Visualization\n\n"
+        f"![Live prediction QA plot]({plot_rel})\n\n"
+        "The chart combines the raw histogram, sorted prediction curve, benchmark exposure scatter, "
+        "and percentile-ranked distribution for the current live batch.\n"
+        if plot_rel
+        else ""
+    )
 
     # --- Report assembly ---
     report = f"""# Numerai Weekly Report — {week_label}{title_suffix}
@@ -631,6 +938,24 @@ was selected because it provides the best generalization for MMC in walk-forward
 ## Top Statistics
 
 {top_snapshot}
+
+---
+
+## Live Prediction QA
+
+{live_visualization_block}
+
+{_format_metric_block_rows("Distribution Check", live_diag_rows)}
+
+| Check | Status | Details |
+| --- | --- | --- |
+{live_diag_checks}
+
+| Artifact | Path |
+| --- | --- |
+| Distribution plot | `{plot_rel or live_diag_artifacts.get("plot_path", "n/a")}` |
+| Scored CSV | `{csv_rel or live_diag_artifacts.get("csv_path", "n/a")}` |
+| Summary JSON | `{summary_rel or live_diag_artifacts.get("summary_path", "n/a")}` |
 
 ---
 
@@ -677,6 +1002,7 @@ _Generated by numerai-weekly MCP on {now.strftime("%Y-%m-%d %H:%M")}._
         "html_report_path": str(html_report_path),
         "dashboard_path": str(REPORTS_DIR / "index.html"),
         "week": week_label,
+        "live_diagnostics": live_diagnostics,
         "content": report,
         "html_content": report_html,
     }

@@ -112,14 +112,19 @@ Follow the models here:
 - [TAILSPIN](https://numer.ai/tailspin)
 
 
-## Weekly MCP orchestration prompt
+## Weekly MCP orchestration playbook
 
-To make the agent workflow explicit, the repo includes the weekly operations prompt in `WEEKLY_SUBMISSION_PROMPT.md`.
+To make the agent workflow explicit, the repo documents the weekly operations loop as a
+canonical, agent-neutral playbook in `playbooks/weekly-submission.md`.
 
-The orchestration prompt connects the agent to the custom MCP + Numerai's official MCP with agent skills for weekly retraining, generating predictions, and submissions:
+The playbook connects the agent to the custom MCP + Numerai's official MCP for weekly
+retraining, validation, data drift analysis, feature comparison, report generation, and
+model uploads. Claude Code exposes it as the auto-triggering `weekly-submission` skill
+(`.claude/skills/weekly-submission/`); Codex and other agents reach the same playbook via
+`AGENTS.md`:
 
 ```md
-Follow the instructions in `WEEKLY_SUBMISSION_PROMPT.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
+Follow the instructions in `playbooks/weekly-submission.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
 ```
 
 ## TypeScript MCP server
