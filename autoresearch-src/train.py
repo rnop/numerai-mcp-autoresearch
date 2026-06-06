@@ -89,8 +89,8 @@ EXTRA_FEATURES = [
 
 # Feature ranking: rank pool features by mean absolute Pearson corr over the
 # full training window (TRAILING_ERAS = LOOKBACK_ERAS), keep top TOP_K_FEATURES.
-TRAILING_ERAS = 142
-TOP_K_FEATURES = 240
+TRAILING_ERAS = 20
+TOP_K_FEATURES = 60
 
 # Training target — drives what the model learns to predict.
 MAIN_TARGET = "target_ender_60"
