@@ -100,10 +100,23 @@ CORR_TARGET = "target_ender_20"
 
 MMC_BENCHMARK_COLUMN = "v52_lgbm_ender20"
 
-# Synthetic averaged target: simple mean of the three 60-day targets.
-# Computed at load time — not a real Numerai column.
+# Synthetic averaged targets: simple row-wise mean of their source columns.
+# Computed at load time — not real Numerai columns. Register new ones here.
 AVG60_TARGET = "target_avg60"
 AVG60_SOURCES = ["target_ender_60", "target_teager2b_60", "target_jasper_60"]
+
+# Mean of all six ender/teager2b/jasper targets across both horizons (60 + 20).
+AVG6_TARGET = "target_avg6"
+AVG6_SOURCES = [
+    "target_ender_60", "target_teager2b_60", "target_jasper_60",
+    "target_ender_20", "target_teager2b_20", "target_jasper_20",
+]
+
+# Maps each synthetic target name to the source columns it averages.
+SYNTHETIC_TARGETS = {
+    AVG60_TARGET: AVG60_SOURCES,
+    AVG6_TARGET: AVG6_SOURCES,
+}
 
 VALIDATION_ERA_COUNT = 100
 BENCHMARK_NEUTRALIZATION = 0.1
@@ -651,8 +664,8 @@ def main() -> None:
         feature_pool = build_feature_pool()
         feature_set_name = "dynamic_pool"
         print(f"Feature pool: {len(feature_pool)} features from {CANDIDATE_GROUPS} + {len(EXTRA_FEATURES)} extras")
-    if MAIN_TARGET == AVG60_TARGET:
-        targets_to_load = list({CORR_TARGET} | set(AVG60_SOURCES))
+    if MAIN_TARGET in SYNTHETIC_TARGETS:
+        targets_to_load = list({CORR_TARGET} | set(SYNTHETIC_TARGETS[MAIN_TARGET]))
     else:
         targets_to_load = list({MAIN_TARGET, CORR_TARGET})
 
@@ -663,9 +676,10 @@ def main() -> None:
     validation_df = read_split_custom("validation", features=feature_pool, targets=targets_to_load)
 
     # Compute synthetic averaged target if requested
-    if MAIN_TARGET == AVG60_TARGET:
+    if MAIN_TARGET in SYNTHETIC_TARGETS:
+        sources = SYNTHETIC_TARGETS[MAIN_TARGET]
         for df in [train_df, validation_df]:
-            df[AVG60_TARGET] = df[AVG60_SOURCES].mean(axis=1)
+            df[MAIN_TARGET] = df[sources].mean(axis=1)
 
     validation_benchmarks = read_benchmarks("validation")
     if MMC_BENCHMARK_COLUMN not in validation_benchmarks.columns:
