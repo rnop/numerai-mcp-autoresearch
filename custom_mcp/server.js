@@ -196,95 +196,11 @@ function getSelectedFeatures(meta) {
 
 function runWeeklyRetrain(args = {}) {
   const force = asBoolean(args.force);
-  ensureDir(SUBMISSIONS_DIR);
-  ensureDir(REPORTS_DIR);
-  refreshValidationData();
-
-  if (!force) {
-    const metas = sortedMetas();
-    if (metas.length > 0) {
-      const lastMeta = loadJson(metas[metas.length - 1]);
-      const lastEnd = String(lastMeta.era_window_end || "");
-      const currentMax = currentMaxLabeledEra();
-      if (currentMax && currentMax === lastEnd) {
-        return {
-          status: "skipped",
-          reason: `Era window unchanged - last submission already covers up to era ${lastEnd}. Pass force=true to retrain anyway.`,
-          last_era_window: `${lastMeta.era_window_start} - ${lastEnd}`,
-          last_built_date: lastMeta.built_date || null,
-        };
-      }
-    }
-  }
-
-  if (fs.existsSync(PID_PATH)) {
-    const existingPid = Number(fs.readFileSync(PID_PATH, "utf-8").trim());
-    if (Number.isFinite(existingPid)) {
-      terminateProcess(existingPid);
-    }
-  }
-
-  const fd = fs.openSync(LOG_PATH, "w");
-  const child = spawn(PYTHON_EXE, ["-u", MAKE_SUBMISSION], {
-    cwd: PROJECT_ROOT,
-    env: { ...process.env, PYTHONUNBUFFERED: "1" },
-    detached: true,
-    stdio: ["ignore", fd, fd],
-  });
-  child.unref();
-  fs.closeSync(fd);
-  fs.writeFileSync(PID_PATH, String(child.pid), "utf-8");
-
-  return {
-    status: "running",
-    pid: child.pid,
-    log_path: LOG_PATH,
-    message: "Training started in background. Call check_retrain_status to poll for results.",
-  };
+  return pythonJson(["run-weekly-retrain", ...(force ? ["--force"] : [])]);
 }
 
 function checkRetrainStatus() {
-  if (!fs.existsSync(PID_PATH)) {
-    return {
-      status: "no_job",
-      message: "No retrain job found. Call run_weekly_retrain first.",
-    };
-  }
-
-  const pid = Number(fs.readFileSync(PID_PATH, "utf-8").trim());
-  const logTail = tailNonEmptyLines(LOG_PATH, 30);
-  if (Number.isFinite(pid) && isProcessAlive(pid)) {
-    return {
-      status: "running",
-      pid,
-      log_tail: logTail,
-    };
-  }
-
-  const metas = sortedMetas();
-  if (metas.length === 0) {
-    return {
-      status: "failed",
-      message: "Process exited but no metadata JSON found in submissions/.",
-      log_tail: logTail,
-    };
-  }
-
-  const metaPath = metas[metas.length - 1];
-  const meta = loadJson(metaPath);
-  const liveDiagnostics = computeLivePredictionDiagnostics(metaPath);
-  return {
-    status: "completed",
-    era_window: `${meta.era_window_start} - ${meta.era_window_end}`,
-    era_count: meta.era_count || null,
-    best_iteration: meta.best_iteration || null,
-    features_selected: meta.top_k_features || null,
-    wall_clock_seconds: meta.wall_clock_seconds || null,
-    pickle_size_mb: meta.pickle_size_mb || null,
-    meta_path: metaPath,
-    live_diagnostics: liveDiagnostics,
-    log_tail: logTail,
-  };
+  return pythonJson(["check-retrain-status"]);
 }
 
 function getTrainingSummary() {

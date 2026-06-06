@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +34,9 @@ SOURCE_DIR = PROJECT_ROOT / "autoresearch-src"
 MAKE_SUBMISSION = str(CUSTOM_MCP_DIR / "make_submission.py")
 FEATURES_JSON = PROJECT_ROOT / "data" / "numerai" / "v5.2" / "features.json"
 CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence"]
+PID_PATH = REPORTS_DIR / "retrain_latest.pid"
+LOG_PATH = REPORTS_DIR / "retrain_latest.log"
+STATUS_PATH = REPORTS_DIR / "retrain_latest_status.json"
 
 EXTRA_FEATURES: set[str] = {
     "feature_tonal_illuminating_porgy",
@@ -109,6 +113,23 @@ def _sorted_metas() -> list[Path]:
 
 def _load_meta(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _status_timestamp() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+def _write_retrain_status(payload: dict[str, object]) -> None:
+    STATUS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _read_retrain_status() -> dict[str, object] | None:
+    if not STATUS_PATH.exists():
+        return None
+    try:
+        return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 
 def _format_metric(value: object, digits: int = 5) -> str:
@@ -528,6 +549,102 @@ def _current_max_labeled_era() -> str | None:
         return None
 
 
+def _run_weekly_retrain_worker(force: bool = False) -> int:
+    try:
+        _write_retrain_status(
+            {
+                "status": "refreshing",
+                "phase": "refresh_validation",
+                "force": force,
+                "updated_at": _status_timestamp(),
+            }
+        )
+        print("Refreshing validation parquet before retrain guard...")
+        refresh_data(include_live=False, dataset_names=["validation"])
+
+        _write_retrain_status(
+            {
+                "status": "checking_guard",
+                "phase": "era_window_guard",
+                "force": force,
+                "updated_at": _status_timestamp(),
+            }
+        )
+
+        if not force:
+            metas = _sorted_metas()
+            if metas:
+                last_meta = _load_meta(metas[-1])
+                last_end = str(last_meta.get("era_window_end", ""))
+                current_max = _current_max_labeled_era()
+                if current_max is not None and current_max == last_end:
+                    _write_retrain_status(
+                        {
+                            "status": "skipped",
+                            "reason": (
+                                f"Era window unchanged — last submission already covers up to era {last_end}. "
+                                "Pass force=True to retrain anyway."
+                            ),
+                            "last_era_window": f"{last_meta.get('era_window_start')} – {last_end}",
+                            "last_built_date": last_meta.get("built_date"),
+                            "current_max_era": current_max,
+                            "updated_at": _status_timestamp(),
+                        }
+                    )
+                    print(f"Skipping retrain: labeled validation data still ends at era {last_end}.")
+                    return 0
+
+        _write_retrain_status(
+            {
+                "status": "training",
+                "phase": "make_submission",
+                "force": force,
+                "updated_at": _status_timestamp(),
+            }
+        )
+        print("Starting make_submission.py...")
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        result = subprocess.run(
+            [PYTHON_EXE, "-u", MAKE_SUBMISSION],
+            cwd=str(PROJECT_ROOT),
+            env=env,
+            check=False,
+        )
+
+        metas = _sorted_metas()
+        if result.returncode == 0 and metas:
+            meta = _load_meta(metas[-1])
+            _write_retrain_status(
+                {
+                    "status": "completed",
+                    "meta_path": str(metas[-1]),
+                    "era_window": f"{meta.get('era_window_start')} – {meta.get('era_window_end')}",
+                    "updated_at": _status_timestamp(),
+                }
+            )
+            return 0
+
+        _write_retrain_status(
+            {
+                "status": "failed",
+                "message": f"make_submission.py exited with code {result.returncode}.",
+                "returncode": result.returncode,
+                "updated_at": _status_timestamp(),
+            }
+        )
+        return result.returncode or 1
+    except Exception as exc:
+        traceback.print_exc()
+        _write_retrain_status(
+            {
+                "status": "failed",
+                "message": str(exc),
+                "updated_at": _status_timestamp(),
+            }
+        )
+        return 1
+
+
 @mcp.tool()
 def run_weekly_retrain(force: bool = False) -> dict:
     """
@@ -549,42 +666,29 @@ def run_weekly_retrain(force: bool = False) -> dict:
     SUBMISSIONS_DIR.mkdir(exist_ok=True)
     REPORTS_DIR.mkdir(exist_ok=True)
 
-    # Refresh labeled data before checking whether the era window advanced.
-    refresh_data(include_live=False, dataset_names=["validation"])
-
-    # Era-window guard: skip if data hasn't advanced since the last retrain.
-    if not force:
-        metas = _sorted_metas()
-        if metas:
-            last_meta = _load_meta(metas[-1])
-            last_end = str(last_meta.get("era_window_end", ""))
-            current_max = _current_max_labeled_era()
-            if current_max is not None and current_max == last_end:
-                return {
-                    "status": "skipped",
-                    "reason": f"Era window unchanged — last submission already covers up to era {last_end}. "
-                              "Pass force=True to retrain anyway.",
-                    "last_era_window": f"{last_meta.get('era_window_start')} – {last_end}",
-                    "last_built_date": last_meta.get("built_date"),
-                }
-
-    log_path = REPORTS_DIR / "retrain_latest.log"
-    pid_path = REPORTS_DIR / "retrain_latest.pid"
-
     # Terminate any previous run that is still alive.
-    if pid_path.exists():
+    if PID_PATH.exists():
         try:
-            old_pid = int(pid_path.read_text().strip())
+            old_pid = int(PID_PATH.read_text().strip())
             import psutil
             p = psutil.Process(old_pid)
             p.terminate()
         except Exception:
             pass
 
-    log_file = open(log_path, "w", encoding="utf-8")
-    env = {**__import__("os").environ, "PYTHONUNBUFFERED": "1"}
+    _write_retrain_status(
+        {
+            "status": "queued",
+            "phase": "spawn_worker",
+            "force": force,
+            "updated_at": _status_timestamp(),
+        }
+    )
+
+    log_file = open(LOG_PATH, "w", encoding="utf-8")
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(
-        [PYTHON_EXE, "-u", MAKE_SUBMISSION],
+        [PYTHON_EXE, "-u", __file__, "--weekly-worker", *(["--force"] if force else [])],
         cwd=str(PROJECT_ROOT),
         stdout=log_file,
         stderr=subprocess.STDOUT,
@@ -592,13 +696,13 @@ def run_weekly_retrain(force: bool = False) -> dict:
     )
     log_file.close()
 
-    pid_path.write_text(str(proc.pid), encoding="utf-8")
+    PID_PATH.write_text(str(proc.pid), encoding="utf-8")
 
     return {
         "status": "running",
         "pid": proc.pid,
-        "log_path": str(log_path),
-        "message": "Training started in background. Call check_retrain_status() to poll for results.",
+        "log_path": str(LOG_PATH),
+        "message": "Retrain worker started in background. Call check_retrain_status() to poll refresh, guard, and training progress.",
     }
 
 
@@ -611,13 +715,13 @@ def check_retrain_status() -> dict:
     log, and — when finished — the same result fields as the old blocking
     run_weekly_retrain: era_window, best_iteration, wall_clock_seconds, etc.
     """
-    pid_path = REPORTS_DIR / "retrain_latest.pid"
-    log_path = REPORTS_DIR / "retrain_latest.log"
-
-    if not pid_path.exists():
+    if not PID_PATH.exists():
+        status_payload = _read_retrain_status()
+        if status_payload:
+            return status_payload
         return {"status": "no_job", "message": "No retrain job found. Call run_weekly_retrain() first."}
 
-    pid = int(pid_path.read_text().strip())
+    pid = int(PID_PATH.read_text().strip())
 
     # Check if the process is still alive.
     running = False
@@ -628,14 +732,31 @@ def check_retrain_status() -> dict:
         running = False
 
     log_tail = ""
-    if log_path.exists():
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    if LOG_PATH.exists():
+        lines = LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
         log_tail = "\n".join(ln for ln in lines[-30:] if ln.strip())
 
+    status_payload = _read_retrain_status() or {}
     if running:
-        return {
-            "status": "running",
+        response = {
+            "status": status_payload.get("status", "running"),
             "pid": pid,
+            "log_tail": log_tail,
+        }
+        for key in ("phase", "message", "updated_at", "force"):
+            if key in status_payload:
+                response[key] = status_payload[key]
+        return response
+
+    if status_payload.get("status") == "skipped":
+        return {
+            **status_payload,
+            "log_tail": log_tail,
+        }
+
+    if status_payload.get("status") == "failed":
+        return {
+            **status_payload,
             "log_tail": log_tail,
         }
 
@@ -652,7 +773,7 @@ def check_retrain_status() -> dict:
     live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], meta)
 
     # Detect failure via returncode hint in log (make_submission prints non-zero exit).
-    log_text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    log_text = LOG_PATH.read_text(encoding="utf-8", errors="replace") if LOG_PATH.exists() else ""
     if "Traceback" in log_text or "Error" in log_text.split("RESULT_JSON")[0]:
         # Still return the meta if it exists — the run may have partially succeeded.
         pass
@@ -1009,4 +1130,6 @@ _Generated by numerai-weekly MCP on {now.strftime("%Y-%m-%d %H:%M")}._
 
 
 if __name__ == "__main__":
+    if "--weekly-worker" in sys.argv:
+        sys.exit(_run_weekly_retrain_worker(force="--force" in sys.argv))
     mcp.run()

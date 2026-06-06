@@ -20,6 +20,8 @@ from custom_mcp.server import (  # noqa: E402
     _current_live_prediction_era,
     _current_max_labeled_era,
     _load_meta,
+    check_retrain_status,
+    run_weekly_retrain,
 )
 from custom_mcp.site_builder import build_dashboard, build_report_html  # noqa: E402
 from prepare import refresh_data  # noqa: E402
@@ -42,6 +44,14 @@ def main() -> None:
     if command == "refresh-validation":
         refresh_data(include_live=False, dataset_names=["validation"])
         _emit({"status": "ok"})
+        return
+
+    if command == "run-weekly-retrain":
+        _emit(run_weekly_retrain(force="--force" in sys.argv[2:]))
+        return
+
+    if command == "check-retrain-status":
+        _emit(check_retrain_status())
         return
 
     if command == "compute-live-report-metrics":

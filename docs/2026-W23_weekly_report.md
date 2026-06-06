@@ -1,43 +1,46 @@
-# Numerai Weekly Report — 2026-W23 | Live Era 1217
+# Numerai Weekly Report — 2026-W23 | Live Era 1218
 
-**Model:** tailspin | **Built:** 2026-05-31 | **Era window:** 1075 – 1216 | **Live submission era:** 1217
+**Model:** tailspin | **Built:** 2026-06-06 | **Era window:** 1076 – 1217 | **Live submission era:** 1218
 
 ---
 
 ## Feature Changes vs Previous Week
 
-> Previous build: **2026-05-31** — era window 1074 – 1215
+> Previous build: **2026-05-31** — era window 1075 – 1216
 
 | | Count |
 | --- | --- |
 | Total features (current) | 60 |
-| Added this week | 4 |
-| Removed this week | 4 |
-| Retained | 56 |
+| Added this week | 11 |
+| Removed this week | 11 |
+| Retained | 49 |
 
-**Added** (4 features)
-
-| Group | Count | Sample Features |
-| --- | --- | --- |
-| faith | 2 | `feature_ropy_eurythmical_genera`, `feature_wary_unverified_drip` |
-| intelligence | 2 | `feature_melismatic_daily_freak`, `feature_substitutive_lacerated_souchong` |
-
-**Removed** (4 features)
+**Added** (11 features)
 
 | Group | Count | Sample Features |
 | --- | --- | --- |
-| faith | 3 | `feature_indivisible_mortgaged_enterectomy`, `feature_succinct_indusiate_surfacing`, `feature_unimpressionable_palish_elegit` |
-| strength | 1 | `feature_expansile_encyclopaedic_chortler` |
+| faith | 9 | `feature_dink_inobservant_liguria`, `feature_finned_doughty_dehumidifier`, `feature_incidental_unelectrified_corinthian`, `feature_overrash_lanceted_krater`, +5 more |
+| intelligence | 1 | `feature_giddied_smooth_circumvallation` |
+| wisdom | 1 | `feature_incognoscible_gangliest_megaphone` |
 
-**Retained** (56 features)
+**Removed** (11 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| faith | 6 | `feature_consecrate_untaxed_alexia`, `feature_incentive_ashamed_waltzer`, `feature_lao_curule_semicoma`, `feature_paneled_dytiscid_zillion`, +2 more |
+| intelligence | 1 | `feature_unmanufactured_ignored_chosen` |
+| strength | 3 | `feature_braided_neighbourly_fairyhood`, `feature_diversified_feticidal_ousting`, `feature_vital_capsulate_knawel` |
+| wisdom | 1 | `feature_superfetate_typographical_two` |
+
+**Retained** (49 features)
 
 | Group | Count | Sample Features |
 | --- | --- | --- |
 | extra | 5 | `feature_gravitational_xeromorphic_myxoma`, `feature_imminent_unobserved_lengthening`, `feature_stalworth_rotund_inflammability`, `feature_tempered_devouring_izzard`, +1 more |
-| faith | 31 | `feature_aerodynamical_exhibitive_keyword`, `feature_attachable_martinique_beg`, `feature_consecrate_untaxed_alexia`, `feature_corrigible_petalled_presbyopia`, +27 more |
-| intelligence | 9 | `feature_advised_subdural_toadflax`, `feature_capreolate_philharmonic_mazzard`, `feature_closer_sluttish_revealing`, `feature_esemplastic_droopier_scad`, +5 more |
-| strength | 5 | `feature_braided_neighbourly_fairyhood`, `feature_discrete_bicuspidate_bricole`, `feature_diversified_feticidal_ousting`, `feature_horsier_ophidian_snoozer`, +1 more |
-| wisdom | 6 | `feature_muscly_splintery_stope`, `feature_probative_jolliest_february`, `feature_superfetate_typographical_two`, `feature_tongued_tricarpellary_inge`, +2 more |
+| faith | 27 | `feature_aerodynamical_exhibitive_keyword`, `feature_attachable_martinique_beg`, `feature_corrigible_petalled_presbyopia`, `feature_demiurgic_hedgiest_plaque`, +23 more |
+| intelligence | 10 | `feature_advised_subdural_toadflax`, `feature_capreolate_philharmonic_mazzard`, `feature_closer_sluttish_revealing`, `feature_esemplastic_droopier_scad`, +6 more |
+| strength | 2 | `feature_discrete_bicuspidate_bricole`, `feature_horsier_ophidian_snoozer` |
+| wisdom | 5 | `feature_muscly_splintery_stope`, `feature_probative_jolliest_february`, `feature_tongued_tricarpellary_inge`, `feature_uncleanly_streamy_gelatinoid`, +1 more |
 
 
 ---
@@ -63,12 +66,12 @@ was selected because it provides the best generalization for MMC in walk-forward
 | Live training target | `target_ender_60` |
 | Validation target | `target_ender_20` |
 | MMC benchmark | `v52_lgbm_ender20` |
-| Training: CORR mean | 0.02167 |
-| Training: MMC mean | 0.00468 |
-| Training Sharpe | 1.707 |
-| Validation: CORR mean | 0.02170 |
-| Validation: MMC mean | 0.00508 |
-| Validation Sharpe | 2.667 |
+| Training: CORR mean | 0.02169 |
+| Training: MMC mean | 0.00469 |
+| Training Sharpe | 1.782 |
+| Validation: CORR mean | 0.02179 |
+| Validation: MMC mean | 0.00468 |
+| Validation Sharpe | 2.317 |
 
 ---
 
@@ -77,7 +80,7 @@ was selected because it provides the best generalization for MMC in walk-forward
 
 ### Visualization
 
-![Live prediction QA plot](../artifacts/live_prediction_distribution_train_1075_1216.png)
+![Live prediction QA plot](../artifacts/live_prediction_distribution_train_1076_1217.png)
 
 The chart combines the raw histogram, sorted prediction curve, benchmark exposure scatter, and percentile-ranked distribution for the current live batch.
 
@@ -89,24 +92,24 @@ The chart combines the raw histogram, sorted prediction curve, benchmark exposur
 | Verdict | PASS |
 | Ready for submission | yes |
 | Rows scored | 7118 |
-| Prediction std | 0.00473 |
-| Prediction p99-p01 spread | 0.02146 |
+| Prediction std | 0.00475 |
+| Prediction p99-p01 spread | 0.02151 |
 | Duplicate fraction | 0.00000 |
-| Benchmark corr | 0.10958 |
+| Benchmark corr | 0.11639 |
 
 | Check | Status | Details |
 | --- | --- | --- |
 | row_count | PASS | Scored 7,118 live rows. |
-| dispersion | PASS | Prediction std is 0.004727. |
-| tail_spread | PASS | Prediction p99-p01 spread is 0.021465. |
+| dispersion | PASS | Prediction std is 0.004748. |
+| tail_spread | PASS | Prediction p99-p01 spread is 0.021507. |
 | duplicates | PASS | Duplicate prediction fraction is 0.000%. |
-| benchmark_corr | PASS | corr(pred, v52_lgbm_ender20) is 0.110. |
+| benchmark_corr | PASS | abs corr(pred, v52_lgbm_ender20) is 0.116. |
 
 | Artifact | Path |
 | --- | --- |
-| Distribution plot | `../artifacts/live_prediction_distribution_train_1075_1216.png` |
-| Scored CSV | `../artifacts/live_predictions_train_1075_1216.csv` |
-| Summary JSON | `../artifacts/live_prediction_distribution_train_1075_1216_summary.json` |
+| Distribution plot | `../artifacts/live_prediction_distribution_train_1076_1217.png` |
+| Scored CSV | `../artifacts/live_predictions_train_1076_1217.csv` |
+| Summary JSON | `../artifacts/live_prediction_distribution_train_1076_1217_summary.json` |
 
 ---
 
@@ -114,11 +117,11 @@ The chart combines the raw histogram, sorted prediction curve, benchmark exposur
 
 | Metric | Value |
 | --- | --- |
-| Built date | 2026-05-31 |
+| Built date | 2026-06-06 |
 | Model type | XGBoost (GPU) |
-| Best iteration | 848 |
-| Wall clock time | 63.3s |
-| Pickle size | 0.77 MB |
+| Best iteration | 784 |
+| Wall clock time | 84.9s |
+| Pickle size | 0.72 MB |
 
 ---
 
@@ -127,7 +130,7 @@ The chart combines the raw histogram, sorted prediction curve, benchmark exposur
 | Parameter | Value |
 | --- | --- |
 | Target | `target_ender_60` |
-| Era window | 1075 – 1216 |
+| Era window | 1076 – 1217 |
 | Era count | 142 |
 | Lookback eras | 142 |
 | Trailing eras (feature ranking) | 20 |
@@ -135,9 +138,9 @@ The chart combines the raw histogram, sorted prediction curve, benchmark exposur
 | Feature pool size | 699 |
 | Fit eras | 132 |
 | Early stopping eras | 10 |
-| Best iteration | 848 |
+| Best iteration | 784 |
 | Benchmark neutralization | 0.1 vs `v52_lgbm_ender20` |
 
 ---
 
-_Generated by numerai-weekly MCP on 2026-06-02 14:11._
+_Generated by numerai-weekly MCP on 2026-06-06 10:14._
