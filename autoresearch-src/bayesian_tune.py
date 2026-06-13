@@ -1,10 +1,10 @@
 """
 Bayesian hyperparameter search for the XGBoost walkforward model.
 
-Fixed config (experiment: k240_t142):
+Fixed config (experiment: wf_dyn_xgboost_ender60 — the live champion regime):
   target        : target_ender_60
   feature groups: faith+wisdom+strength+intelligence + rain/sunshine extras
-  feature select: trailing=142 (full lookback window), top_k=240
+  feature select: trailing=20, top_k=60
   walkforward   : lookback=142, purge=4, per-step dynamic features
   neutralization: 0.10
 
@@ -61,7 +61,7 @@ from prepare import (
 )
 
 # ---------------------------------------------------------------------------
-# Fixed experiment config (mirrors wf_dyn_xgboost_ender60)
+# Fixed experiment config (mirrors wf_dyn_xgboost_ender60 — live champion)
 # ---------------------------------------------------------------------------
 
 CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence"]
@@ -88,8 +88,8 @@ EXTRA_FEATURES = [
     "feature_millennial_uncanonical_sunna",
 ]
 
-TRAILING_ERAS      = 142   # full lookback window — feature signal averaged over all training eras
-TOP_K_FEATURES     = 240
+TRAILING_ERAS      = 20    # champion regime — feature signal averaged over last 20 train eras
+TOP_K_FEATURES     = 60
 MAIN_TARGET        = "target_ender_60"
 CORR_TARGET        = "target_ender_20"
 MMC_BENCHMARK_COL  = "v52_lgbm_ender20"
@@ -533,7 +533,7 @@ def _append_result(row: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bayesian XGBoost hyperparameter search")
     parser.add_argument("--trials",      type=int, default=25,                  help="Number of Optuna trials (default 25)")
-    parser.add_argument("--study-name",  type=str, default="xgb_ender60_k240_lb142", help="Optuna study name")
+    parser.add_argument("--study-name",  type=str, default="xgb_ender60_k60_t20", help="Optuna study name")
     parser.add_argument("--storage",     type=str, default=None,                help="Optuna storage URI (e.g. sqlite:///tune.db)")
     parser.add_argument("--skip-baseline", action="store_true",                 help="Skip enqueuing the known-good baseline as trial 0")
     parser.add_argument("--mlflow-experiment", type=str, default="numerai-autoresearch", help="MLflow experiment name")

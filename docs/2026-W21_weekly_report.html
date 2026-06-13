@@ -168,6 +168,40 @@
       white-space: normal;
       overflow-wrap: anywhere;
     }
+    .feature-change-dropdown {
+      margin: 16px 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.45);
+      overflow: hidden;
+    }
+    .feature-change-dropdown summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 18px;
+      font-weight: 700;
+      color: var(--ink);
+      background: rgba(244, 240, 232, 0.7);
+    }
+    .feature-change-dropdown summary::-webkit-details-marker {
+      display: none;
+    }
+    .feature-change-dropdown summary::after {
+      content: "+";
+      float: right;
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .feature-change-dropdown[open] summary::after {
+      content: "-";
+    }
+    .feature-change-dropdown .table-wrap {
+      margin: 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      background: var(--paper-strong);
+    }
     blockquote {
       margin: 18px 0;
       padding: 0 0 0 16px;
@@ -183,6 +217,28 @@
       border-radius: 18px;
       background: var(--paper-strong);
       max-width: 100%;
+    }
+    .report-figure {
+      margin: 18px 0 24px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.62);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+    }
+    .report-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(123, 107, 83, 0.14);
+      background: #fff;
+    }
+    .report-figure figcaption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.5;
     }
     .training-grid {
       display: grid;
@@ -261,7 +317,7 @@
 <p><strong>Model:</strong> tailspin | <strong>Built:</strong> 2026-05-24 | <strong>Era window:</strong> 1074 – 1215 | <strong>Live submission era:</strong> 1216</p></header>
       <div class="hero-links">
         <a href="./index.html">Research Experiments Overview</a>
-        <a class="primary" href="./2026-W22_weekly_report.html">Latest weekly report</a>
+        <a class="primary" href="./2026-W23_weekly_report.html">Latest weekly report</a>
         <a href="./feature_analysis_report.html">Feature Analysis</a>
       </div>
     </section>
