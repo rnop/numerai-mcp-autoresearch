@@ -299,29 +299,29 @@
       </p>
       <div class="hero-links">
         <a class="primary" href="./index.html">Research Experiments Overview</a>
-        <a href="./2026-W23_weekly_report.html">Latest weekly report</a>
+        <a href="./2026-W24_weekly_report.html">Latest weekly report</a>
         <a href="./feature_analysis_report.html">Feature Analysis</a>
       </div>
     </section>
 
     <section class="metrics">
-      <div class="metric-card"><span class="metric-label">Best research score</span><strong>0.00727</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
-      <div class="metric-card"><span class="metric-label">Best MMC</span><strong>0.00277</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
-      <div class="metric-card"><span class="metric-label">Best CORR</span><strong>0.01563</strong><p>wf_dyn_xgboost_ender60_k120</p></div>
-      <div class="metric-card"><span class="metric-label">Best Sharpe</span><strong>1.58200</strong><p>wf_dyn_xgboost_ender60</p></div>
+      <div class="metric-card"><span class="metric-label">Best research score</span><strong>0.00739</strong><p>bayes_k60_t20_best</p></div>
+      <div class="metric-card"><span class="metric-label">Best MMC</span><strong>0.00282</strong><p>bayes_k60_t20_best</p></div>
+      <div class="metric-card"><span class="metric-label">Best CORR</span><strong>0.01587</strong><p>bayes_k60_t20_best</p></div>
+      <div class="metric-card"><span class="metric-label">Best Sharpe</span><strong>1.61300</strong><p>bayes_k60_t20_best</p></div>
     </section>
 
     <section class="layout">
       <div class="panel">
         <h2>Current strategy snapshot</h2>
         <p>
-          The leading public configuration is <strong>wf_dyn_xgboost_ender60_k120</strong>:
+          The leading public configuration is <strong>bayes_k60_t20_best</strong>:
           a xgboost model on <code>target_ender_60</code>
-          with top-120 dynamic features over a trailing
+          with top-60 dynamic features over a trailing
           20-era ranking window.
         </p>
         <div class="leader-grid">
-          <div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_k120</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</p></div><span>0.00727</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4</p></div><span>0.00714</span></div><div class="leader-card"><div><strong>bayes_k240_lb142_best</strong><p>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</p></div><span>0.00550</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><p>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</p></div><span>0.00535</span></div><div class="leader-card"><div><strong>wf_xgboost_ender60_unique_top12</strong><p>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</p></div><span>0.00525</span></div><div class="leader-card"><div><strong>baseline_ender60</strong><p>non-walkforward; single model on full train</p></div><span>0.00420</span></div>
+          <div class="leader-card"><div><strong>bayes_k60_t20_best</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4; live champion (formerly logged as wf_dyn_xgboost_ender60); metrics from bayesian tune trial 0 on 2026-06-06 (10/10 trials, no trial beat baseline; orig 2026-05-13: corr=0.01536 mmc=0.00271 score=0.00714, 95 eras); full search in mlflow/results/</p></div><span>0.00739</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_k120</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</p></div><span>0.00727</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_avg6</strong><p>walkforward; per-step dynamic features; lookback=142; purge=4; synthetic 6-target mean (ender/teager2b/jasper x 60/20); discard vs champion 0.00271</p></div><span>0.00629</span></div><div class="leader-card"><div><strong>bayes_k240_lb142_best</strong><p>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</p></div><span>0.00550</span></div><div class="leader-card"><div><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><p>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</p></div><span>0.00535</span></div><div class="leader-card"><div><strong>wf_xgboost_ender60_unique_top12</strong><p>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</p></div><span>0.00525</span></div>
         </div>
       </div>
 
@@ -332,7 +332,7 @@
           folder. These links open the rendered artifacts directly.
         </p>
         <div class="report-grid">
-          <a class="report-card" href="./2026-W23_weekly_report.html"><span>2026-W23 weekly report</span><strong>Open HTML report</strong></a><a class="report-card" href="./2026-W22_weekly_report.html"><span>2026-W22 weekly report</span><strong>Open HTML report</strong></a><a class="report-card" href="./2026-W21_weekly_report.html"><span>2026-W21 weekly report</span><strong>Open HTML report</strong></a>
+          <a class="report-card" href="./2026-W24_weekly_report.html"><span>2026-W24 weekly report</span><strong>Open HTML report</strong></a><a class="report-card" href="./2026-W23_weekly_report.html"><span>2026-W23 weekly report</span><strong>Open HTML report</strong></a><a class="report-card" href="./2026-W22_weekly_report.html"><span>2026-W22 weekly report</span><strong>Open HTML report</strong></a><a class="report-card" href="./2026-W21_weekly_report.html"><span>2026-W21 weekly report</span><strong>Open HTML report</strong></a>
         </div>
       </div>
     </section>
@@ -351,11 +351,11 @@
               <th>Target</th>
               <th>CORR</th>
               <th>MMC</th>
-              <th>Runtime</th>
+              <th>SHARPE</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td><strong>wf_dyn_xgboost_ender60</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.01536</td><td>0.00271</td><td>42.6 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_k120</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</span></td><td>target_ender_60</td><td>0.01563</td><td>0.00277</td><td>80.1 min</td></tr><tr><td><strong>bayes_k240_t64_best</strong><br /><span>bayes tuning; 7/10 trials completed; lookback=64; purge=4; top_k=240; trailing=64; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.00714</td><td>0.00140</td><td>16.6 min</td></tr><tr><td><strong>bayes_k240_lb142_best</strong><br /><span>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.01229</td><td>0.00185</td><td>44.6 min</td></tr><tr><td><strong>wf_xgboost_ender60_unique_top12</strong><br /><span>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.01108</td><td>0.00211</td><td>7.5 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.01129</td><td>0.00216</td><td>9.9 min</td></tr><tr><td><strong>wf_xgboost_ender60_recommended_top12</strong><br /><span>walkforward; fixed features; custom recommended_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.00794</td><td>0.00131</td><td>5.6 min</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_recommended_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom recommended_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.00770</td><td>0.00130</td><td>9.0 min</td></tr>
+            <tr><td><strong>wf_dyn_xgboost_ender60_k120</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4; top_k=120</span></td><td>target_ender_60</td><td>0.01563</td><td>0.00277</td><td>1.577</td></tr><tr><td><strong>bayes_k240_t64_best</strong><br /><span>bayes tuning; 7/10 trials completed; lookback=64; purge=4; top_k=240; trailing=64; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.00714</td><td>0.00140</td><td>0.467</td></tr><tr><td><strong>bayes_k240_lb142_best</strong><br /><span>bayes tuning; 2/10 trials completed; lookback=142; purge=4; top_k=240; trailing=142; best=trial1; full results in mlflow/results/bayesian_tune_results.csv</span></td><td>target_ender_60</td><td>0.01229</td><td>0.00185</td><td>1.084</td></tr><tr><td><strong>wf_xgboost_ender60_unique_top12</strong><br /><span>walkforward; fixed features; custom unique_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.01108</td><td>0.00211</td><td>1.072</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_unique_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom unique_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.01129</td><td>0.00216</td><td>1.105</td></tr><tr><td><strong>wf_xgboost_ender60_recommended_top12</strong><br /><span>walkforward; fixed features; custom recommended_top12; lookback=142; purge=4</span></td><td>target_ender_60</td><td>0.00794</td><td>0.00131</td><td>0.646</td></tr><tr><td><strong>wf_dyn_xgboost_ender60_recommended_top12_t20</strong><br /><span>walkforward; per-step dynamic features; custom recommended_top12; lookback=142; purge=4; trailing=20</span></td><td>target_ender_60</td><td>0.00770</td><td>0.00130</td><td>0.609</td></tr><tr><td><strong>wf_dyn_xgboost_avg6</strong><br /><span>walkforward; per-step dynamic features; lookback=142; purge=4; synthetic 6-target mean (ender/teager2b/jasper x 60/20); discard vs champion 0.00271</span></td><td>target_avg6</td><td>0.01368</td><td>0.00232</td><td>1.457</td></tr>
           </tbody>
         </table>
       </div>
