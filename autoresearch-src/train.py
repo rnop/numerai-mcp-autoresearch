@@ -116,6 +116,23 @@ DYNAMIC_WF_FEATURES = False  # per-step feature selection in walkforward; enable
 CUSTOM_FEATURE_CSV: str | None = None
 CUSTOM_FEATURE_SET_LABEL: str | None = None
 
+# Experiment (jun21): per-step dynamic target selection. At each walkforward
+# step, rank the v5.2 LGBM benchmark models by numerai_corr to CORR_TARGET over
+# the step's lookback eras and train on the winning model's target. Feature
+# ranking then follows the chosen target. Enabled by --dynamic-target; xgboost
+# + walkforward only. CORR_TARGET / MMC_BENCHMARK_COLUMN scoring stays fixed.
+DYNAMIC_TARGET_SELECT = False
+BENCHMARK_MODEL_TO_TARGET = {
+    "v52_lgbm_cyrusd20": "target_cyrusd_20",
+    "v52_lgbm_teager2b20": "target_teager2b_20",
+    "v52_lgbm_ender20": "target_ender_20",
+    "v52_lgbm_jasper20": "target_jasper_20",
+    "v52_lgbm_cyrusd60": "target_cyrusd_60",
+    "v52_lgbm_teager2b60": "target_teager2b_60",
+    "v52_lgbm_ender60": "target_ender_60",
+    "v52_lgbm_jasper60": "target_jasper_60",
+}
+
 # Early stopping: hold out the last EARLY_STOPPING_ERAS of training data as
 # an internal eval set. All held-out eras come from train.parquet — no leakage
 # from validation.
@@ -264,6 +281,51 @@ def select_features_dynamic(
     return [feature_pool[i] for i in top_idx]
 
 
+def precompute_model_era_corrs(
+    bench_df: pd.DataFrame,
+    model_cols: list[str],
+    target_col: str,
+) -> dict[str, np.ndarray]:
+    """
+    Per-era numerai_corr of each benchmark-model column with target_col.
+    Returns mapping era_str -> float64 array aligned to model_cols (NaN where a
+    model has no coverage for that era).
+    """
+    frame = bench_df.copy()
+    frame["era"] = frame["era"].astype(str)
+    per_model: dict[str, pd.Series] = {}
+    for col in model_cols:
+        sub = frame[["era", col, target_col]].dropna(subset=[col, target_col])
+        per_model[col] = per_era_corr(sub, col, target_col=target_col)
+    corr_df = pd.DataFrame(per_model)
+    corr_df.index = corr_df.index.astype(str)
+    return {
+        era: corr_df.loc[era, model_cols].to_numpy(dtype=np.float64)
+        for era in corr_df.index
+    }
+
+
+def select_target_dynamic(
+    train_eras: list[str],
+    model_era_corrs: dict[str, np.ndarray],
+    model_cols: list[str],
+    model_to_target: dict[str, str],
+    fallback_target: str,
+) -> str:
+    """
+    Pick the training target whose benchmark model has the highest mean per-era
+    corr to CORR_TARGET over `train_eras`. Falls back when no era data exists.
+    """
+    rows = [model_era_corrs[e] for e in train_eras if e in model_era_corrs]
+    if not rows:
+        return fallback_target
+    mean_corr = np.nanmean(np.stack(rows), axis=0)
+    if not np.isfinite(mean_corr).any():
+        return fallback_target
+    best = model_cols[int(np.nanargmax(mean_corr))]
+    return model_to_target[best]
+
+
 def make_era_balanced_weights(eras: pd.Series) -> np.ndarray:
     counts = eras.value_counts()
     return (1.0 / eras.map(counts)).to_numpy(dtype=np.float32)
@@ -302,16 +364,18 @@ def train_model(
     predict_df: pd.DataFrame,
     features: list[str],
     seed: int,
+    target: str | None = None,
 ) -> np.ndarray:
     """
     Train a single XGBoost model on the full training dataset with an internal
     early-stopping holdout (last EARLY_STOPPING_ERAS of train_df), then
-    predict on predict_df.
+    predict on predict_df. Trains on `target` (defaults to MAIN_TARGET).
     """
+    target = target or MAIN_TARGET
     params = dict(XGB_PARAMS)
     params["seed"] = seed
 
-    clean_train = train_df.loc[train_df[MAIN_TARGET].notna()].copy()
+    clean_train = train_df.loc[train_df[target].notna()].copy()
     if clean_train.empty:
         raise ValueError("Training data has no labeled rows.")
 
@@ -335,14 +399,14 @@ def train_model(
 
     dtrain = xgb.QuantileDMatrix(
         data=fit_data[features],
-        label=fit_data[MAIN_TARGET],
+        label=fit_data[target],
         weight=fit_data["sample_weight"],
         missing=np.nan,
         max_bin=params.get("max_bin", 256),
     )
     deval = xgb.QuantileDMatrix(
         data=es_data[features],
-        label=es_data[MAIN_TARGET],
+        label=es_data[target],
         weight=es_data["sample_weight"],
         missing=np.nan,
         max_bin=params.get("max_bin", 256),
@@ -609,6 +673,7 @@ def main() -> None:
     _parser.add_argument("--model", default=None, choices=["xgboost", "lgbm", "mlp"])
     _parser.add_argument("--walkforward", action="store_true", default=False)
     _parser.add_argument("--dynamic-features", action="store_true", default=False)
+    _parser.add_argument("--dynamic-target", action="store_true", default=False)
     _parser.add_argument("--top-k", type=int, default=None)
     _parser.add_argument("--trailing-eras", type=int, default=None)
     _parser.add_argument("--feature-csv", default=None)
@@ -616,6 +681,7 @@ def main() -> None:
     _args, _ = _parser.parse_known_args()
     global MAIN_TARGET, MODEL, WALKFORWARD, DYNAMIC_WF_FEATURES, TOP_K_FEATURES
     global TRAILING_ERAS, CUSTOM_FEATURE_CSV, CUSTOM_FEATURE_SET_LABEL
+    global DYNAMIC_TARGET_SELECT
     if _args.target is not None:
         MAIN_TARGET = _args.target
     if _args.model is not None:
@@ -632,6 +698,14 @@ def main() -> None:
         CUSTOM_FEATURE_CSV = _args.feature_csv
     if _args.feature_set_label is not None:
         CUSTOM_FEATURE_SET_LABEL = _args.feature_set_label
+    if _args.dynamic_target:
+        DYNAMIC_TARGET_SELECT = True
+
+    if DYNAMIC_TARGET_SELECT:
+        if MODEL != "xgboost":
+            raise ValueError("--dynamic-target supports only --model xgboost")
+        if not WALKFORWARD:
+            raise ValueError("--dynamic-target requires --walkforward")
 
     t0 = time.time()
     np.random.seed(SEED)
@@ -651,7 +725,11 @@ def main() -> None:
         feature_pool = build_feature_pool()
         feature_set_name = "dynamic_pool"
         print(f"Feature pool: {len(feature_pool)} features from {CANDIDATE_GROUPS} + {len(EXTRA_FEATURES)} extras")
-    if MAIN_TARGET == AVG60_TARGET:
+    if DYNAMIC_TARGET_SELECT:
+        targets_to_load = sorted(
+            set(BENCHMARK_MODEL_TO_TARGET.values()) | {MAIN_TARGET, CORR_TARGET}
+        )
+    elif MAIN_TARGET == AVG60_TARGET:
         targets_to_load = list({CORR_TARGET} | set(AVG60_SOURCES))
     else:
         targets_to_load = list({MAIN_TARGET, CORR_TARGET})
@@ -714,41 +792,84 @@ def main() -> None:
     # -----------------------------------------------------------------------
     # Train model and predict on eval eras
     # -----------------------------------------------------------------------
-    def _run_model(step_train: pd.DataFrame, step_predict: pd.DataFrame, step_feats: list[str]) -> np.ndarray:
+    def _run_model(step_train: pd.DataFrame, step_predict: pd.DataFrame, step_feats: list[str], target: str | None = None) -> np.ndarray:
         if MODEL == "lgbm":
             return train_model_lgbm(step_train, step_predict, step_feats, SEED)
         elif MODEL == "mlp":
             return train_model_mlp(step_train, step_predict, step_feats, SEED)
         else:
-            return train_model(step_train, step_predict, step_feats, SEED)
+            return train_model(step_train, step_predict, step_feats, SEED, target=target)
 
     if WALKFORWARD:
         feat_mode = "dynamic" if DYNAMIC_WF_FEATURES else "fixed"
+        tgt_mode = "dynamic_select" if DYNAMIC_TARGET_SELECT else MAIN_TARGET
         print(
             f"\nWalkforward: {VALIDATION_ERA_COUNT} steps  "
             f"lookback={LOOKBACK_ERAS}  purge={PURGE_ERAS}  "
-            f"features={feat_mode}  model={MODEL}  target={MAIN_TARGET}"
+            f"features={feat_mode}  model={MODEL}  target={tgt_mode}"
         )
         history_df = pd.concat([train_df, validation_df], ignore_index=True)
         history_eras = ordered_eras(history_df)
         history_index = build_era_index(history_df)
 
-        if DYNAMIC_WF_FEATURES:
-            print(f"Precomputing per-era Pearson correlations on full history ({len(history_eras)} eras)...")
-            t_hcorr = time.time()
-            history_era_corrs = precompute_era_correlations(history_df, feature_pool, MAIN_TARGET)
-            print(f"  Done in {time.time() - t_hcorr:.1f}s")
+        # Per-target feature-corr cache: feature ranking follows the chosen
+        # target, but we only pay the precompute for targets actually selected.
+        feature_corr_cache: dict[str, dict[str, np.ndarray]] = {}
+
+        def feature_corrs_for(target: str) -> dict[str, np.ndarray]:
+            if target not in feature_corr_cache:
+                print(f"Precomputing per-era feature corrs vs {target} ({len(history_eras)} eras)...")
+                t_fc = time.time()
+                feature_corr_cache[target] = precompute_era_correlations(
+                    history_df, feature_pool, target
+                )
+                print(f"  Done in {time.time() - t_fc:.1f}s")
+            return feature_corr_cache[target]
+
+        if DYNAMIC_WF_FEATURES and not DYNAMIC_TARGET_SELECT:
+            history_era_corrs = feature_corrs_for(MAIN_TARGET)
+
+        if DYNAMIC_TARGET_SELECT:
+            model_cols = list(BENCHMARK_MODEL_TO_TARGET.keys())
+            bench_all = pd.concat(
+                [read_benchmarks("train"), read_benchmarks("validation")],
+                ignore_index=True,
+            ).merge(
+                history_df[["id", "era", CORR_TARGET]], on=["id", "era"], how="inner"
+            )
+            print(f"Precomputing benchmark-model era corrs vs {CORR_TARGET} ({len(model_cols)} models)...")
+            t_mc = time.time()
+            model_era_corrs = precompute_model_era_corrs(bench_all, model_cols, CORR_TARGET)
+            print(f"  Done in {time.time() - t_mc:.1f}s")
 
         eval_eras = validation_eras[-VALIDATION_ERA_COUNT:]
         collected_preds: list[np.ndarray] = []
+        selected_targets: list[str] = []
 
         for i, eval_era in enumerate(eval_eras):
             step_train_eras = get_walkforward_train_eras(history_eras, eval_era)
 
+            if DYNAMIC_TARGET_SELECT:
+                step_target = select_target_dynamic(
+                    train_eras=step_train_eras,
+                    model_era_corrs=model_era_corrs,
+                    model_cols=model_cols,
+                    model_to_target=BENCHMARK_MODEL_TO_TARGET,
+                    fallback_target=MAIN_TARGET,
+                )
+            else:
+                step_target = MAIN_TARGET
+            selected_targets.append(step_target)
+
             if DYNAMIC_WF_FEATURES:
+                era_corrs = (
+                    feature_corrs_for(step_target)
+                    if DYNAMIC_TARGET_SELECT
+                    else history_era_corrs
+                )
                 step_features = select_features_dynamic(
                     train_eras=step_train_eras,
-                    era_corrs=history_era_corrs,
+                    era_corrs=era_corrs,
                     feature_pool=feature_pool,
                     top_k=TOP_K_FEATURES,
                     trailing=TRAILING_ERAS,
@@ -765,10 +886,11 @@ def main() -> None:
             if (i + 1) % 10 == 0 or i == 0:
                 print(
                     f"  Step {i+1:3d}/{len(eval_eras)}: era={eval_era}  "
-                    f"train_eras={len(step_train_eras)}  rows={len(step_train_df):,}"
+                    f"train_eras={len(step_train_eras)}  rows={len(step_train_df):,}  "
+                    f"target={step_target}"
                 )
 
-            step_preds = _run_model(step_train_df, step_predict_df, step_features)
+            step_preds = _run_model(step_train_df, step_predict_df, step_features, target=step_target)
 
             if BENCHMARK_NEUTRALIZATION > 0:
                 bmark = step_predict_df[MMC_BENCHMARK_COLUMN].to_numpy()
@@ -778,6 +900,14 @@ def main() -> None:
 
         preds = np.concatenate(collected_preds)
         eval_df["prediction"] = preds
+
+        if DYNAMIC_TARGET_SELECT:
+            from collections import Counter
+            dist = Counter(selected_targets)
+            print(
+                "Dynamic target selection distribution: "
+                f"{dict(sorted(dist.items(), key=lambda kv: -kv[1]))}"
+            )
     else:
         if MODEL == "lgbm":
             print(
@@ -827,7 +957,7 @@ def main() -> None:
             "feature_count": TOP_K_FEATURES,
             "candidate_groups": ",".join(CANDIDATE_GROUPS),
             "trailing_eras": TRAILING_ERAS,
-            "target": MAIN_TARGET,
+            "target": "dynamic_select" if DYNAMIC_TARGET_SELECT else MAIN_TARGET,
             "corr_target": CORR_TARGET,
             "mmc_benchmark_column": MMC_BENCHMARK_COLUMN,
             "validation_era_count": VALIDATION_ERA_COUNT,
