@@ -38,6 +38,41 @@ The custom server exposes these tools, in the order you'll generally call them:
 | `compare_weekly_features()` | Diff this week's selected features vs last week, grouped by feature family. |
 | `generate_weekly_report()` | Write `docs/YYYY-WW_weekly_report.md` and `.html`. |
 
+## Environment and how to actually run it
+
+**Interpreter.** Everything here must run under the **`numerai_rag_env`** conda interpreter
+(`C:\Users\nopro\anaconda3\envs\numerai_rag_env\python.exe`, Python 3.11 — it has the GPU
+XGBoost, `numerapi`, `fastmcp`, and `requests`). Set `NUMERAI_PYTHON` to it before running.
+`make_submission.py` has a hard env guard that aborts on any other interpreter, and the
+submission pickle is Python 3.11 bytecode.
+
+**When the MCP servers aren't connected (the normal case here).** In this repo the
+`numerai-weekly` and official `numerai` MCP servers are usually **not** wired up as live
+session tools, so you can't call `mcp__numerai-weekly__*` / `mcp__numerai__*` directly.
+Drive the same code locally instead — the results are identical:
+
+- **Retrain (steps 1–2):** run the background worker entrypoint
+  `python custom_mcp/server.py --weekly-worker` (add `--force` only when explicitly asked).
+  It writes status to `docs/retrain_latest_status.json` and a log to `docs/retrain_latest.log`;
+  poll those instead of `check_retrain_status()`.
+- **QA / summary / features / report (steps 3–5):** import `custom_mcp.server` and call the
+  underlying functions in-process (`check_live_predictions`, `get_training_summary`,
+  `compare_weekly_features`, `generate_weekly_report` — unwrap `.fn` on the `@mcp.tool()`
+  objects if needed).
+- **Upload (step 6):** run `python custom_mcp/upload_to_tailspin.py`, which bridges to the
+  official Numerai MCP over HTTP via `fastmcp.Client` and performs the full handoff. See step 6.
+
+If the MCP servers *are* connected, prefer the named tools above; the local entrypoints are
+the fallback, not a different procedure.
+
+## Trigger phrasing — does "and submission" mean upload?
+
+- **"run weekly retrain"** → run steps 1–5 and **stop before upload**; report that the build
+  is QA-passed and ready, and offer to submit.
+- **"run weekly retrain and submission"** (or "submit", "run the weekly pipeline end to end")
+  → run steps 1–6 including the live upload to TAILSPIN. No extra confirmation needed beyond
+  this phrasing; the QA gate (step 3) is still a hard stop.
+
 ## The weekly loop
 
 Run these in order. Each step gates the next — don't upload a build that failed QA.
@@ -82,21 +117,39 @@ Call `generate_weekly_report()`. It writes the markdown and HTML report into `do
 current ISO week and returns the content. The dashboard at `docs/index.html` links to these
 automatically.
 
-### 6. Upload
-Only after a passing (or consciously accepted `warn`) QA gate: use the **official `numerai`**
-MCP server to upload the packaged model artifact from `submissions/` (the `.pkl` named in
-`get_training_summary()`'s `pkl_path`).
+### 6. Upload  (only when the request includes submission)
+Skip this step for a retrain-only request (see *Trigger phrasing* above). Run it only after a
+passing (or consciously accepted `warn`) QA gate.
 
-**Always upload to the TAILSPIN model slot.** This weekly artifact is the TAILSPIN live
-model — upload it there, not ANGOSTURA or PIXELATED. Uploading to the wrong slot is a
-live-stakes mistake, so treat TAILSPIN as fixed for this loop and do not guess from the
-report header or infer another slot. Confirm the official server's upload tool
-name/signature at call time, since that server is configured separately from this repo.
+**Run the helper:** `python custom_mcp/upload_to_tailspin.py` (with `NUMERAI_PYTHON` /
+`numerai_rag_env`). With no argument it uploads the newest `submissions/*_meta.json` build;
+pass an explicit `.pkl` path to override. It performs the full official-Numerai handoff so you
+don't have to orchestrate it by hand:
 
-**Pickle/runtime caveat (don't skip).** The submission pickle contains **Python 3.11**
-bytecode. It must be uploaded with the Python 3.11 docker image
-(`4d39918c-a82b-42ea-8dc7-ed5a30e676c5`). Numerai's default is 3.12, which fails at load
-time with `unknown opcode 0`. Confirm the 3.11 image is selected before uploading.
+1. resolves the **TAILSPIN** model id by name (tournament 8),
+2. `get_upload_auth` → presigned S3 URL,
+3. PUTs the pickle bytes to that URL (no `Content-Type` header — the signed type is empty),
+4. `create` with the Python 3.11 docker image,
+5. polls `list` until `validationStatus: validated`,
+6. `assign`s the validated pickle as the active TAILSPIN model.
+
+It prints each step and exits non-zero on failure; relay the final `SUCCESS`/pickle id to the
+user. Credentials are read from `.env` (`NUMERAI_MCP_AUTH` for the connection header,
+`API_TOKEN` = `PUBLIC_ID$SECRET_KEY` for the `apiToken` param) — never put them on the command
+line or in the repo.
+
+**Always TAILSPIN — never ANGOSTURA or PIXELATED.** The helper hard-codes the slot by name so
+it can't drift; don't repoint it from a report header or any inferred slot. Uploading to the
+wrong slot is a live-stakes mistake.
+
+**Pickle/runtime caveat (baked into the helper, don't override).** The submission pickle is
+**Python 3.11** bytecode and must use the Python 3.11 docker image
+(`4d39918c-a82b-42ea-8dc7-ed5a30e676c5`). Numerai's default 3.12 fails at load with
+`unknown opcode 0`.
+
+**If the official `numerai` MCP *is* connected as a session tool,** you may instead call its
+`upload_model` operations directly (`get_upload_auth` → PUT → `create` → `list` → `assign`)
+with the same TAILSPIN id and 3.11 image — the helper just automates exactly that.
 
 ## Reporting back to the user
 
