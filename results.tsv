@@ -1,0 +1,2 @@
+commit	val_mmc_mean	val_corr_mean	research_score	status	description
+a183c98	0.002697	0.015232	0.007084	baseline	champion reconstruction wf_dyn xgboost ender60 (top_k=60,trailing=20,lb=142,purge=4,neut=0.1); reproduced on jun21, sharpe mmc=1.25 corr=1.58; matches leaderboard 0.00271
