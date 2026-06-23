@@ -1,16 +1,16 @@
 {
-  "best_trial": 1,
-  "best_research_score": 0.005501462313209535,
+  "best_trial": 0,
+  "best_research_score": 0.007386072197702509,
   "best_params": {
     "max_depth": 5,
-    "learning_rate": 0.018679147494991156,
-    "subsample": 0.8829984854528512,
-    "colsample_bytree": 0.4595304694689628,
-    "reg_lambda": 2.570883195054889,
-    "min_child_weight": 14,
+    "learning_rate": 0.01,
+    "subsample": 0.85,
+    "colsample_bytree": 0.4,
+    "reg_lambda": 5.0,
+    "min_child_weight": 20,
     "max_bin": 128
   },
   "n_trials": 10,
-  "study_name": "xgb_ender60_k240_lb142",
+  "study_name": "xgb_ender60_k60_t20",
   "mlflow_enabled": true
 }

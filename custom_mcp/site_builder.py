@@ -1585,7 +1585,7 @@ def _build_dashboard_html() -> str:
             f"<td>{html.escape(row['target'])}</td>"
             f"<td>{_format_float(_to_float(row['val_corr_mean']), 5)}</td>"
             f"<td>{_format_float(_to_float(row['val_mmc_mean']), 5)}</td>"
-            f"<td>{_format_seconds(row.get('wall_clock_s'))}</td>"
+            f"<td>{_format_float(_to_float(row.get('val_corr_sharpe')), 3)}</td>"
             "</tr>"
         )
 
@@ -1949,7 +1949,7 @@ def _build_dashboard_html() -> str:
               <th>Target</th>
               <th>CORR</th>
               <th>MMC</th>
-              <th>Runtime</th>
+              <th>SHARPE</th>
             </tr>
           </thead>
           <tbody>
