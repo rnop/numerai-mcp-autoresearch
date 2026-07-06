@@ -164,7 +164,7 @@ async def upload(pkl_path: Path) -> int:
             listing = _data(await client.call_tool("upload_model", {
                 "apiToken": api_token, "operation": "list", "modelId": model_id,
             }))
-            entries = listing.get("computePickleUploads", listing) if isinstance(listing, dict) else listing
+            entries = listing.get("computePickles", listing) if isinstance(listing, dict) else listing
             entries = entries if isinstance(entries, list) else []
             entry = next((e for e in entries if e.get("id") == pickle_id), None)
             status = (entry or {}).get("validationStatus")

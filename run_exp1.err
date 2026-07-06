@@ -1,4 +1,0 @@
-C:\Users\nopro\OneDrive\Desktop\numerai-mcp-autoresearch\autoresearch-src\train.py:258: RuntimeWarning: invalid value encountered in divide
-  corr = np.where(X_std > 0, num / (X_std * y_std), 0.0)
-C:\Users\nopro\OneDrive\Desktop\numerai-mcp-autoresearch\autoresearch-src\train.py:258: RuntimeWarning: invalid value encountered in divide
-  corr = np.where(X_std > 0, num / (X_std * y_std), 0.0)
