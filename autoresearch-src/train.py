@@ -98,7 +98,7 @@ MAIN_TARGET = "target_ender_60"
 # CORR evaluation target — must stay "target_ender_20" per ../program.md.
 CORR_TARGET = "target_ender_20"
 
-MMC_BENCHMARK_COLUMN = "v52_lgbm_ender20"
+MMC_BENCHMARK_COLUMN = "v53_lgbm_ender20"
 
 # Synthetic averaged targets: simple row-wise mean of their source columns.
 # Computed at load time — not real Numerai columns. Register new ones here.
@@ -134,16 +134,13 @@ CUSTOM_FEATURE_SET_LABEL: str | None = None
 # the step's lookback eras and train on the winning model's target. Feature
 # ranking then follows the chosen target. Enabled by --dynamic-target; xgboost
 # + walkforward only. CORR_TARGET / MMC_BENCHMARK_COLUMN scoring stays fixed.
+# v5.3's benchmark_models parquet ships only 2 LGBM models (ender20/ender60),
+# down from v5.2's 8 (cyrusd/teager2b/ender/jasper x 20/60) — narrows this
+# flag's choices accordingly.
 DYNAMIC_TARGET_SELECT = False
 BENCHMARK_MODEL_TO_TARGET = {
-    "v52_lgbm_cyrusd20": "target_cyrusd_20",
-    "v52_lgbm_teager2b20": "target_teager2b_20",
-    "v52_lgbm_ender20": "target_ender_20",
-    "v52_lgbm_jasper20": "target_jasper_20",
-    "v52_lgbm_cyrusd60": "target_cyrusd_60",
-    "v52_lgbm_teager2b60": "target_teager2b_60",
-    "v52_lgbm_ender60": "target_ender_60",
-    "v52_lgbm_jasper60": "target_jasper_60",
+    "v53_lgbm_ender20": "target_ender_20",
+    "v53_lgbm_ender60": "target_ender_60",
 }
 
 # Early stopping: hold out the last EARLY_STOPPING_ERAS of training data as

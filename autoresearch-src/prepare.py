@@ -13,7 +13,7 @@ from scipy.stats import norm
 ROOT = Path(__file__).resolve().parent.parent
 _DATA_ROOT_OVERRIDE = os.environ.get("NUMERAI_DATA_ROOT")
 DATA_ROOT = Path(_DATA_ROOT_OVERRIDE) if _DATA_ROOT_OVERRIDE else (ROOT / "data" / "numerai")
-DATA_VERSION = "v5.2"
+DATA_VERSION = "v5.3"
 DATA_DIR = DATA_ROOT / DATA_VERSION
 ARTIFACTS_DIR = ROOT / "artifacts"
 
