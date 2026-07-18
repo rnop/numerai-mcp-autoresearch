@@ -271,6 +271,51 @@ def precompute_era_correlations(
     return result
 
 
+def precompute_era_correlations_cached(
+    df: pd.DataFrame,
+    feature_pool: list[str],
+    target_col: str,
+) -> dict[str, np.ndarray]:
+    """
+    Disk-cached wrapper around precompute_era_correlations. The precompute is
+    deterministic given (data version, target, feature pool, era set), so the
+    key hashes exactly those; a new round's eras or any pool/target change
+    misses the cache. Synthetic targets also fold their source columns into
+    the key so redefining them invalidates stale entries.
+    """
+    import hashlib
+
+    eras = sorted(df["era"].astype(str).unique().tolist())
+    h = hashlib.md5()
+    for part in (
+        DATA_VERSION,
+        target_col,
+        ",".join(SYNTHETIC_TARGETS.get(target_col, [])),
+        "\n".join(feature_pool),
+        "\n".join(eras),
+    ):
+        h.update(part.encode())
+        h.update(b"\x00")
+    cache_path = ARTIFACTS_DIR / "era_corr_cache" / f"{h.hexdigest()}.npz"
+
+    if cache_path.exists():
+        data = np.load(cache_path, allow_pickle=False)
+        cached_eras = [str(e) for e in data["eras"]]
+        mat = data["corrs"]
+        print(f"  Era-corr cache hit: {cache_path.name} ({len(cached_eras)} eras)")
+        return {e: mat[i] for i, e in enumerate(cached_eras)}
+
+    result = precompute_era_correlations(df, feature_pool, target_col)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        cache_path,
+        eras=np.array(list(result.keys())),
+        corrs=np.stack(list(result.values())),
+    )
+    print(f"  Era-corr cache saved: {cache_path.name}")
+    return result
+
+
 def select_features_dynamic(
     train_eras: list[str],
     era_corrs: dict[str, np.ndarray],
@@ -786,7 +831,7 @@ def main() -> None:
     # -----------------------------------------------------------------------
     print(f"Precomputing per-era Pearson correlations ({len(train_eras)} eras x {len(feature_pool)} features)...")
     t_corr = time.time()
-    era_corrs = precompute_era_correlations(train_df, feature_pool, MAIN_TARGET)
+    era_corrs = precompute_era_correlations_cached(train_df, feature_pool, MAIN_TARGET)
     print(f"  Done in {time.time() - t_corr:.1f}s")
 
     # -----------------------------------------------------------------------
@@ -832,7 +877,7 @@ def main() -> None:
             if target not in feature_corr_cache:
                 print(f"Precomputing per-era feature corrs vs {target} ({len(history_eras)} eras)...")
                 t_fc = time.time()
-                feature_corr_cache[target] = precompute_era_correlations(
+                feature_corr_cache[target] = precompute_era_correlations_cached(
                     history_df, feature_pool, target
                 )
                 print(f"  Done in {time.time() - t_fc:.1f}s")
@@ -892,8 +937,17 @@ def main() -> None:
             step_train_idx = concat_indices(history_index, step_train_eras)
             step_predict_idx = history_index[eval_era]
 
-            step_train_df = history_df.iloc[step_train_idx].reset_index(drop=True)
-            step_predict_df = history_df.iloc[step_predict_idx].reset_index(drop=True)
+            # Slice only the columns this step needs. iloc on the full frame
+            # would copy all pool features (~1506 cols x 780k rows per step);
+            # training only reads era + target + the selected features, and
+            # prediction additionally needs the benchmark column.
+            train_cols = ["era", step_target, *step_features]
+            predict_cols = ["era", MMC_BENCHMARK_COLUMN, *step_features]
+            train_col_idx = [history_df.columns.get_loc(c) for c in train_cols]
+            predict_col_idx = [history_df.columns.get_loc(c) for c in predict_cols]
+
+            step_train_df = history_df.iloc[step_train_idx, train_col_idx].reset_index(drop=True)
+            step_predict_df = history_df.iloc[step_predict_idx, predict_col_idx].reset_index(drop=True)
 
             if (i + 1) % 10 == 0 or i == 0:
                 print(
