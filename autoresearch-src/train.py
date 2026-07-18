@@ -61,7 +61,9 @@ ROOT = Path(__file__).resolve().parent.parent
 # Dynamic feature pool: named groups whose features form the candidate pool.
 # Agility/dexterity excluded (reliably negative group-level signal).
 # Serenity/charisma excluded (negligible unique signal vs. overlap cost).
-CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence"]
+# Experiment (jul17): added "quantum", v5.3's new 807-feature group, to test
+# whether the new features carry unique top-K-worthy signal.
+CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence", "quantum"]
 
 # Hand-picked rain + sunshine features: not in medium set (max MMC novelty),
 # strong validation pct_pos, regime-emergent recent signal.
