@@ -243,17 +243,16 @@ def precompute_era_correlations(
     """
     Compute per-era Pearson correlation of every pool feature with target_col.
     Returns mapping era_str -> float32 array of length len(feature_pool).
-    """
-    df = df.reset_index(drop=True)
-    feat_arr = df[feature_pool].to_numpy(dtype=np.float64)
-    tgt_arr = df[target_col].to_numpy(dtype=np.float64)
-    era_arr = df["era"].to_numpy()
 
+    Slices one era at a time via groupby rather than materializing the whole
+    history as a single dense float64 matrix — large pools (e.g. with the
+    v5.3 "quantum" group folded in) times the full walkforward history can
+    otherwise demand tens of GB for one array.
+    """
     result: dict[str, np.ndarray] = {}
-    for era in np.unique(era_arr):
-        mask = era_arr == era
-        X = feat_arr[mask]
-        y = tgt_arr[mask]
+    for era, chunk in df.groupby("era", sort=False):
+        X = chunk[feature_pool].to_numpy(dtype=np.float64)
+        y = chunk[target_col].to_numpy(dtype=np.float64)
         valid = ~np.isnan(y)
         if valid.sum() < 10:
             result[str(era)] = np.zeros(len(feature_pool), dtype=np.float32)
