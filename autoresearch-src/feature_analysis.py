@@ -1,11 +1,11 @@
 """
-Numerai v5.2 — Feature Group Analysis
+Numerai v5.3 — Feature Group Analysis
 
-Analyses per-era Spearman feature-target correlations for all 12 feature groups
+Analyses per-era Spearman feature-target correlations for all 13 feature groups
 across 6 targets in both train and validation splits.
 
 Groups: intelligence, charisma, strength, dexterity, constitution, wisdom,
-        agility, serenity, sunshine, rain, midnight, faith
+        agility, serenity, sunshine, rain, midnight, faith, quantum
 
 Outputs saved to artifacts/feature_analysis/:
   {group}_feature_ranks_{train|validation}.csv  — per-feature stats per target
@@ -29,7 +29,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 _DATA_ROOT_OVERRIDE = os.environ.get("NUMERAI_DATA_ROOT")
 DATA_ROOT = Path(_DATA_ROOT_OVERRIDE) if _DATA_ROOT_OVERRIDE else (ROOT / "data" / "numerai")
-DATA_DIR = DATA_ROOT / "v5.2"
+DATA_DIR = DATA_ROOT / "v5.3"
 OUT_DIR = ROOT / "artifacts" / "feature_analysis"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +45,7 @@ TARGETS = [
 ALL_GROUPS = [
     "intelligence", "charisma", "strength", "dexterity", "constitution",
     "wisdom", "agility", "serenity", "sunshine", "rain", "midnight", "faith",
+    "quantum",
 ]
 
 VALIDATION_TAIL = 100
@@ -350,7 +351,7 @@ def main() -> None:
     t_start = time.time()
 
     print("=" * 70)
-    print("Numerai v5.2 - Feature Group Analysis")
+    print("Numerai v5.3 - Feature Group Analysis")
     print("=" * 70)
 
     meta = load_meta()
