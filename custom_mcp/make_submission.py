@@ -2,11 +2,12 @@
 Build and pickle the live submission model.
 
 Strategy: walkforward per-step dynamic feature selection, applied to the live window.
-  - Feature pool : faith + wisdom + strength + intelligence + 17 rain/sunshine extras (~699 features)
+  - Feature pool : faith + wisdom + strength + intelligence + quantum
+                   + 17 rain/sunshine extras (~1506 features, v5.3 Quantum data)
   - Training eras: last LOOKBACK_ERAS of combined train+validation data (no purge — we predict the next era)
   - Feature selection: top TOP_K_FEATURES by mean abs Pearson corr over trailing TRAILING_ERAS of that window
   - Model: XGBoost (GPU), same hyperparams as the walkforward experiment
-  - Neutralization: 10% against v52_lgbm_ender20 applied inside predict()
+  - Neutralization: 10% against v53_lgbm_ender20 applied inside predict()
 
 Output: submission_model.pkl  (cloudpickle of the predict function)
 
@@ -57,10 +58,11 @@ from prepare import (
 # ---------------------------------------------------------------------------
 MAIN_TARGET = "target_ender_60"
 CORR_TARGET = "target_ender_20"
-MMC_BENCHMARK_COLUMN = "v52_lgbm_ender20"
+MMC_BENCHMARK_COLUMN = "v53_lgbm_ender20"
 LIVE_FALLBACK_TARGET = CORR_TARGET
 
-CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence"]
+# jul18 promotion (research commit 26b95bb): quantum added to the pool.
+CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence", "quantum"]
 EXTRA_FEATURES = [
     "feature_tonal_illuminating_porgy",
     "feature_stalworth_rotund_inflammability",
@@ -83,7 +85,11 @@ EXTRA_FEATURES = [
 
 LOOKBACK_ERAS = 142
 TRAILING_ERAS = 20
-TOP_K_FEATURES = 60
+# top_k 60->120 with the pool growing 699->1506: keeps the live filter at its
+# historical ~8% selectivity (120/1506 vs the old 60/699) and matches the
+# validated champion, whose selection regime (trailing-20 ranking) is the
+# same one used here. Keeping 60 would have tightened the cut to 4%.
+TOP_K_FEATURES = 120
 EARLY_STOPPING_ERAS = 10
 EARLY_STOPPING_ROUNDS = 50
 BENCHMARK_NEUTRALIZATION = 0.1
@@ -146,15 +152,12 @@ def build_live_training_target(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def precompute_era_correlations(df: pd.DataFrame, feature_pool: list[str], target_col: str) -> dict[str, np.ndarray]:
-    df = df.reset_index(drop=True)
-    feat_arr = df[feature_pool].to_numpy(dtype=np.float64)
-    tgt_arr = df[target_col].to_numpy(dtype=np.float64)
-    era_arr = df["era"].to_numpy()
+    # Slices one era at a time (mirrors train.py) — the 1506-feature v5.3 pool
+    # times the full live window would need ~9GB as a single dense matrix.
     result: dict[str, np.ndarray] = {}
-    for era in np.unique(era_arr):
-        mask = era_arr == era
-        X = feat_arr[mask]
-        y = tgt_arr[mask]
+    for era, chunk in df.groupby("era", sort=False):
+        X = chunk[feature_pool].to_numpy(dtype=np.float64)
+        y = chunk[target_col].to_numpy(dtype=np.float64)
         valid = ~np.isnan(y)
         if valid.sum() < 10:
             result[str(era)] = np.zeros(len(feature_pool), dtype=np.float32)
