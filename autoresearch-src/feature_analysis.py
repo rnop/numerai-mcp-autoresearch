@@ -340,6 +340,42 @@ def save_combined_csvs(combined: pd.DataFrame) -> None:
             (sub["pct_pos_train"] > 0.60) & (sub["pct_pos_val"] > 0.60)
         ].sort_values("combined_score", ascending=False)
         stable_unique.to_csv(OUT_DIR / f"recommended_unique_{target}.csv", index=False)
+
+    # Legacy-schema artifacts consumed by site_builder's feature-analysis
+    # report (group_summary_validation.csv + recommended_features_{target}.csv).
+    # Summary: one aggregate row per target over all analyzed features on the
+    # validation split. Recommended: stable features (positive mean and
+    # pct_pos>0.60 on both splits), top 60 by validation sharpe.
+    summary_rows = []
+    for target in TARGETS:
+        sub = combined[combined["target"] == target]
+        summary_rows.append({
+            "group": "other",
+            "mean": sub["mean_val"].mean(),
+            "sharpe": sub["sharpe_val"].mean(),
+            "pct_pos": sub["pct_pos_val"].mean(),
+            "target": target,
+            "split": "validation",
+        })
+    pd.DataFrame(summary_rows).to_csv(OUT_DIR / "group_summary_validation.csv", index=False)
+
+    legacy_cols = {
+        "mean_train": "tr_mean", "sharpe_train": "tr_sharpe",
+        "pct_pos_train": "tr_pct_pos", "mean_val": "val_mean",
+        "sharpe_val": "val_sharpe", "pct_pos_val": "val_pct_pos",
+    }
+    for target in TARGETS:
+        sub = combined[combined["target"] == target]
+        stable = sub[
+            (sub["mean_train"] > 0) & (sub["mean_val"] > 0) &
+            (sub["pct_pos_train"] > 0.60) & (sub["pct_pos_val"] > 0.60)
+        ].sort_values("sharpe_val", ascending=False).head(60)
+        stable = stable.rename(columns=legacy_cols)
+        stable[[
+            "feature", "tr_mean", "std", "tr_sharpe", "tr_pct_pos", "n_eras",
+            "target", "split", "group", "in_small", "in_medium",
+            "val_mean", "val_sharpe", "val_pct_pos",
+        ]].to_csv(OUT_DIR / f"recommended_features_{target}.csv", index=False)
     print(f"\nAll CSVs saved to {OUT_DIR}")
 
 

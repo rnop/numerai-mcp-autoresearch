@@ -68,7 +68,10 @@ def _format_percent(value: float, digits: int = 1) -> str:
 
 
 def _resolve_feature_analysis_data_dir() -> Path | None:
+    # Prefer the current data version; fall back to older local copies so the
+    # report can still render on machines that haven't refreshed yet.
     candidates = [
+        ROOT / "data" / "numerai" / "v5.3",
         ROOT / "data" / "numerai" / "v5.2",
     ]
     for path in candidates:
@@ -855,6 +858,11 @@ def _compute_feature_chart_payload() -> dict[str, object] | None:
         "intelligence": {"label": f"Intelligence ({len(feature_sets['intelligence'])})", "features": feature_sets["intelligence"]},
         "rain": {"label": f"Rain ({len(feature_sets['rain'])})", "features": feature_sets["rain"]},
         "sunshine": {"label": f"Sunshine ({len(feature_sets['sunshine'])})", "features": feature_sets["sunshine"]},
+        **(
+            {"quantum": {"label": f"Quantum ({len(feature_sets['quantum'])})", "features": feature_sets["quantum"]}}
+            if "quantum" in feature_sets
+            else {}
+        ),
         "training_pool": {"label": f"Current training pool ({len(training_pool)})", "features": training_pool},
         "recommended_top12": {"label": f"Recommended top 12 ({len(top_recommended_set)})", "features": top_recommended_set},
         "unique_top12": {"label": f"Unique top 12 ({len(top_unique_set)})", "features": top_unique_set},

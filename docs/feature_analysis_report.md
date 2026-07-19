@@ -24,50 +24,50 @@ design the walk-forward candidate pool in the autoresearch workflow.
 
 ## Headline Takeaways
 
-- The strongest validation summary in the published slice is **target_teager2b_60** with Sharpe **0.155** and **55.5%** positive eras.
-- The public uniqueness artifact surfaces **297** features outside the standard medium set, while the curated unique shortlist still highlights **51** `rain` candidates.
+- The strongest validation summary in the published slice is **target_ender_60** with Sharpe **0.033** and **51.2%** positive eras.
+- The public uniqueness artifact surfaces **963** features outside the standard medium set, while the curated unique shortlist still highlights **6** `rain` candidates.
 - The feature shortlist for `target_ender_60` shows why the live workflow leans into a broader pool than the default Numerai feature sets.
 
 ## Validation Group Summary
 
 | target | mean | sharpe | positive eras |
 | --- | --- | --- | --- |
-| target_ender_20 | 0.00129 | 0.107 | 54.1% |
-| target_ender_60 | 0.00125 | 0.106 | 53.4% |
-| target_teager2b_20 | 0.00147 | 0.126 | 54.9% |
-| target_teager2b_60 | 0.00180 | 0.155 | 55.5% |
-| target_jasper_20 | 0.00113 | 0.095 | 53.9% |
-| target_jasper_60 | 0.00144 | 0.133 | 54.8% |
+| target_ender_20 | 0.00026 | 0.024 | 50.9% |
+| target_ender_60 | 0.00030 | 0.033 | 51.2% |
+| target_teager2b_20 | 0.00024 | 0.023 | 50.9% |
+| target_teager2b_60 | 0.00023 | 0.027 | 51.0% |
+| target_jasper_20 | 0.00023 | 0.021 | 50.8% |
+| target_jasper_60 | 0.00032 | 0.031 | 51.2% |
 
 ## Top Recommended Features For `target_ender_60`
 
 | feature | group | val mean | val sharpe | positive eras |
 | --- | --- | --- | --- | --- |
-| `feature_ishmaelitish_flauntiest_charley` | other | 0.01089 | 1.073 | 86.2% |
-| `feature_brittonic_fortyish_alec` | other | 0.01143 | 1.067 | 86.2% |
-| `feature_psychiatrical_sphenoid_galaxy` | other | 0.01293 | 0.982 | 86.2% |
-| `feature_undivested_vitric_shareholder` | other | 0.01104 | 0.927 | 87.4% |
-| `feature_succinct_indusiate_surfacing` | other | 0.01103 | 0.900 | 81.6% |
-| `feature_veloce_vulnerary_aluminate` | other | 0.00991 | 0.859 | 79.3% |
-| `feature_diplex_parabolic_conk` | other | 0.01063 | 0.771 | 79.3% |
-| `feature_triumphal_contortional_brilliance` | other | 0.00848 | 0.754 | 77.0% |
-| `feature_unreproached_abrasive_kate` | other | 0.00697 | 0.695 | 77.0% |
-| `feature_exhalant_meteorological_excavator` | other | 0.00741 | 0.691 | 72.4% |
+| `feature_shouldered_cliffier_chouse` | wisdom | 0.00935 | 1.421 | 90.8% |
+| `feature_transisthmian_disbelieving_grillage` | wisdom | 0.01044 | 1.357 | 90.8% |
+| `feature_circulative_devolution_cittern` | wisdom | 0.01107 | 1.343 | 90.8% |
+| `feature_unguessed_abroach_wingman` | wisdom | 0.00983 | 1.110 | 87.4% |
+| `feature_tongued_tricarpellary_inge` | wisdom | 0.00998 | 1.084 | 80.5% |
+| `feature_lite_proportionable_mola` | faith | 0.01155 | 1.029 | 87.4% |
+| `feature_uncleanly_streamy_gelatinoid` | wisdom | 0.00986 | 1.004 | 80.5% |
+| `feature_platy_nonchromosomal_bounty` | wisdom | 0.00702 | 0.985 | 87.4% |
+| `feature_disheveled_unmotherly_llandudno` | wisdom | 0.00612 | 0.961 | 81.6% |
+| `feature_egotistical_carotid_irrationality` | constitution | 0.00660 | 0.936 | 81.6% |
 
 ## Top Unique Features Worth Inspecting
 
 | feature | group | combined score | val sharpe | in medium |
 | --- | --- | --- | --- | --- |
-| `feature_circulative_devolution_cittern` | wisdom | 1.091 | 1.172 | False |
-| `feature_unguessed_abroach_wingman` | wisdom | 1.089 | 0.990 | False |
-| `feature_transisthmian_disbelieving_grillage` | wisdom | 1.037 | 1.242 | False |
-| `feature_bridal_fingered_pensioner` | sunshine | 0.958 | 1.102 | False |
-| `feature_depressing_punitive_recuperation` | rain | 0.933 | 0.955 | False |
-| `feature_stalworth_rotund_inflammability` | rain | 0.925 | 1.279 | False |
-| `feature_imminent_unobserved_lengthening` | rain | 0.905 | 1.243 | False |
-| `feature_twaddly_eleven_fustet` | sunshine | 0.864 | 0.886 | False |
-| `feature_psychiatrical_sphenoid_galaxy` | other | 0.858 | 0.982 | False |
-| `feature_gravitational_xeromorphic_myxoma` | rain | 0.857 | 1.176 | False |
+| `feature_circulative_devolution_cittern` | wisdom | 0.902 | 1.343 | False |
+| `feature_transisthmian_disbelieving_grillage` | wisdom | 0.866 | 1.357 | False |
+| `feature_unguessed_abroach_wingman` | wisdom | 0.836 | 1.110 | False |
+| `feature_tongued_tricarpellary_inge` | wisdom | 0.722 | 1.084 | False |
+| `feature_uncleanly_streamy_gelatinoid` | wisdom | 0.710 | 1.004 | False |
+| `feature_brittonic_fortyish_alec` | faith | 0.634 | 0.928 | False |
+| `feature_ungodliest_arkansan_gabriel` | wisdom | 0.616 | 0.578 | False |
+| `feature_heliconian_vociferant_cheechako` | wisdom | 0.611 | 0.695 | False |
+| `feature_touring_silicic_positivism` | quantum | 0.605 | 0.577 | False |
+| `feature_donnard_groutier_twinkle` | rain | 0.582 | 0.488 | False |
 
 ## Target Inter-Correlation
 
@@ -75,12 +75,12 @@ These correlations help explain why several targets cluster together and why `ta
 
 |  | target_ender_20 | target_ender_60 | target_teager2b_20 | target_teager2b_60 | target_jasper_20 | target_jasper_60 |
 | --- | --- | --- | --- | --- | --- | --- |
-| target_ender_20 | 1.0 | 0.47045476531398617 | 0.7997595313729902 | 0.4363082949726886 | 0.795817704497426 | 0.4227105405466921 |
-| target_ender_60 | 0.47045476531398617 | 1.0 | 0.43369346050214636 | 0.8025776899917662 | 0.42490177856755645 | 0.8002867894146204 |
-| target_teager2b_20 | 0.7997595313729902 | 0.43369346050214636 | 1.0 | 0.4489853554396305 | 0.710701970112797 | 0.3904479597818473 |
-| target_teager2b_60 | 0.4363082949726886 | 0.8025776899917662 | 0.4489853554396305 | 1.0 | 0.39435154176274767 | 0.716275554708 |
-| target_jasper_20 | 0.795817704497426 | 0.42490177856755645 | 0.710701970112797 | 0.39435154176274767 | 1.0 | 0.4656525210301023 |
-| target_jasper_60 | 0.4227105405466921 | 0.8002867894146204 | 0.3904479597818473 | 0.716275554708 | 0.4656525210301023 | 1.0 |
+| target_ender_20 | 1.0 | 0.465935733664747 | 0.7937561181637971 | 0.4300340965328804 | 0.7864090296360152 | 0.41676657408070683 |
+| target_ender_60 | 0.465935733664747 | 1.0 | 0.42941085244706195 | 0.793289709786667 | 0.41910490161144004 | 0.7913610752379271 |
+| target_teager2b_20 | 0.7937561181637971 | 0.42941085244706195 | 1.0 | 0.4464478961584912 | 0.702020963388821 | 0.3853343271474052 |
+| target_teager2b_60 | 0.4300340965328804 | 0.793289709786667 | 0.4464478961584912 | 1.0 | 0.3874822966373438 | 0.7070200772923233 |
+| target_jasper_20 | 0.7864090296360152 | 0.41910490161144004 | 0.702020963388821 | 0.3874822966373438 | 1.0 | 0.4623422866233813 |
+| target_jasper_60 | 0.41676657408070683 | 0.7913610752379271 | 0.3853343271474052 | 0.7070200772923233 | 0.4623422866233813 | 1.0 |
 
 ## Artifact Links
 
