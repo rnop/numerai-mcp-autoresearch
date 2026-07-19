@@ -90,9 +90,13 @@ EXTRA_FEATURES = [
 ]
 
 # Feature ranking: rank pool features by mean absolute Pearson corr over the
-# full training window (TRAILING_ERAS = LOOKBACK_ERAS), keep top TOP_K_FEATURES.
+# trailing window, keep top TOP_K_FEATURES.
+# jul18: top_k 60->120 after the merged-pool k-sweep (60/90/120 monotone
+# improving; +10.8% mmc at 120). The 1506-feature pool needed more slots than
+# the 682-pool-era k=60; 120 is still a top-8% cut, far from the dilution
+# regime that failed at k=420 on quantum-only.
 TRAILING_ERAS = 20
-TOP_K_FEATURES = 60
+TOP_K_FEATURES = 120
 
 # Training target — drives what the model learns to predict.
 MAIN_TARGET = "target_ender_60"
