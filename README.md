@@ -32,9 +32,9 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
 - `custom_mcp/make_submission.py`:
   Operational live-model packaging and weekly retrain entrypoint
 - `custom_mcp/server.py`:
-  Operational MCP layer for weekly retraining, feature-diffing, summaries, and report generation
+  Operational Python MCP layer for weekly retraining, feature-diffing, summaries, and report generation
 - `custom_mcp/server.ts` / `custom_mcp/server.js`:
-  TypeScript MCP layer that mirrors the weekly operational tools while reusing Python helpers for model-specific work
+  Alternative TypeScript MCP layer that mirrors the weekly operational tools while reusing Python helpers for model-specific work
 - `custom_mcp/site_builder.py`:
   HTML report and dashboard generator for weekly and research outputs
 - `docs/index.html`:
