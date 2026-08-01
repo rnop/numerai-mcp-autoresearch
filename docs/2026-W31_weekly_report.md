@@ -1,0 +1,147 @@
+# Numerai Weekly Report — 2026-W31 | Live Era 1223
+
+**Model:** tailspin | **Built:** 2026-08-01 | **Era window:** 1084 – 1225 | **Live submission era:** 1223
+
+---
+
+## Feature Changes vs Previous Week
+
+> Previous build: **2026-07-25** — era window 1083 – 1224
+
+| | Count |
+| --- | --- |
+| Total features (current) | 120 |
+| Added this week | 15 |
+| Removed this week | 15 |
+| Retained | 105 |
+
+**Added** (15 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| extra | 1 | `feature_millennial_uncanonical_sunna` |
+| faith | 6 | `feature_consecrate_untaxed_alexia`, `feature_lost_eldritch_gelatination`, `feature_premolar_regurgitate_counsel`, `feature_sluttish_unlocated_lactose`, +2 more |
+| quantum | 7 | `feature_antispasmodic_overpriced_gill`, `feature_besetting_gargantuan_strip`, `feature_conjugal_vermiculated_kettledrum`, `feature_flutier_shrinkable_cavalryman`, +3 more |
+| wisdom | 1 | `feature_heliconian_vociferant_cheechako` |
+
+**Removed** (15 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| extra | 1 | `feature_imminent_unobserved_lengthening` |
+| faith | 4 | `feature_exhalant_meteorological_excavator`, `feature_louche_referenced_esculent`, `feature_pentangular_auxetic_anti`, `feature_unpastured_downier_sniffer` |
+| quantum | 10 | `feature_accustomed_virtuosity_breakdown`, `feature_guileful_decrescendo_pyrite`, `feature_humming_wispier_factoring`, `feature_modulated_shock_tangerine`, +6 more |
+
+**Retained** (105 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| extra | 1 | `feature_tonal_illuminating_porgy` |
+| faith | 25 | `feature_aerodynamical_exhibitive_keyword`, `feature_attachable_martinique_beg`, `feature_cased_nicene_lymphoma`, `feature_constitutive_spanking_granulation`, +21 more |
+| intelligence | 4 | `feature_capreolate_philharmonic_mazzard`, `feature_flawier_oversized_sophism`, `feature_melismatic_daily_freak`, `feature_substitutive_lacerated_souchong` |
+| quantum | 70 | `feature_acceleratory_purloined_balaklava`, `feature_advisory_environmental_canister`, `feature_antiquated_slanting_zeugma`, `feature_askew_asserting_overactivity`, +66 more |
+| strength | 3 | `feature_choreic_sterilized_lagune`, `feature_debonnaire_opulent_stayer`, `feature_hurling_elastomeric_nanny` |
+| wisdom | 2 | `feature_circulative_devolution_cittern`, `feature_radiosensitive_actable_radish` |
+
+
+---
+
+## Target Analysis
+
+**Current target:** `target_ender_60`
+
+This model is trained on `target_ender_60` as established by the v5.2 feature analysis. This target
+was selected because it provides the best generalization for MMC in walk-forward testing.
+
+> A dynamic target recommendation system is planned for a future update. Until then,
+> `target_ender_60` remains the fixed default.
+
+---
+
+## Top Statistics
+
+**Model Snapshot**
+
+| Metric | Value |
+| --- | --- |
+| Live training target | `target_ender_60` |
+| Validation target | `target_ender_20` |
+| MMC benchmark | `v53_lgbm_ender20` |
+| Training: CORR mean | 0.02934 |
+| Training: MMC mean | 0.00599 |
+| Training Sharpe | 2.061 |
+| Validation: CORR mean | 0.02234 |
+| Validation: MMC mean | 0.00482 |
+| Validation Sharpe | 2.098 |
+
+---
+
+## Live Prediction QA
+
+
+### Visualization
+
+![Live prediction QA plot](../artifacts/live_prediction_distribution_train_1084_1225.png)
+
+The chart combines the raw histogram, sorted prediction curve, benchmark exposure scatter, and percentile-ranked distribution for the current live batch.
+
+
+**Distribution Check**
+
+| Metric | Value |
+| --- | --- |
+| Verdict | PASS |
+| Ready for submission | yes |
+| Rows scored | 7142 |
+| Prediction std | 0.00452 |
+| Prediction p99-p01 spread | 0.02081 |
+| Duplicate fraction | 0.00000 |
+| Benchmark corr | 0.18576 |
+
+| Check | Status | Details |
+| --- | --- | --- |
+| row_count | PASS | Scored 7,142 live rows. |
+| dispersion | PASS | Prediction std is 0.004520. |
+| tail_spread | PASS | Prediction p99-p01 spread is 0.020812. |
+| duplicates | PASS | Duplicate prediction fraction is 0.000%. |
+| benchmark_corr | PASS | abs corr(pred, v53_lgbm_ender20) is 0.186. |
+
+| Artifact | Path |
+| --- | --- |
+| Distribution plot | `../artifacts/live_prediction_distribution_train_1084_1225.png` |
+| Scored CSV | `../artifacts/live_predictions_train_1084_1225.csv` |
+| Summary JSON | `../artifacts/live_prediction_distribution_train_1084_1225_summary.json` |
+
+---
+
+## Artifact Details
+
+| Metric | Value |
+| --- | --- |
+| Built date | 2026-08-01 |
+| Model type | XGBoost (GPU) |
+| Best iteration | 859 |
+| Wall clock time | 105.0s |
+| Pickle size | 0.79 MB |
+
+---
+
+## Training Configuration
+
+| Parameter | Value |
+| --- | --- |
+| Target | `target_ender_60` |
+| Era window | 1084 – 1225 |
+| Era count | 142 |
+| Lookback eras | 142 |
+| Trailing eras (feature ranking) | 20 |
+| Top-K features selected | 120 |
+| Feature pool size | 1506 |
+| Fit eras | 132 |
+| Early stopping eras | 10 |
+| Best iteration | 859 |
+| Benchmark neutralization | 0.1 vs `v53_lgbm_ender20` |
+
+---
+
+_Generated by numerai-weekly MCP on 2026-08-01 15:06._
