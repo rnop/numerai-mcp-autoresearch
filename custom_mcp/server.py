@@ -32,7 +32,11 @@ REPORTS_DIR = PROJECT_ROOT / "docs"
 PYTHON_EXE = os.environ.get("NUMERAI_PYTHON", sys.executable)
 SOURCE_DIR = PROJECT_ROOT / "autoresearch-src"
 MAKE_SUBMISSION = str(CUSTOM_MCP_DIR / "make_submission.py")
-FEATURES_JSON = PROJECT_ROOT / "data" / "numerai" / "v5.3" / "features.json"
+# Must match DATA_VERSION in autoresearch-src/prepare.py — the guard and the
+# training run have to read the same dataset or the era check is meaningless.
+DATA_VERSION = "v5.3"
+DATA_DIR = PROJECT_ROOT / "data" / "numerai" / DATA_VERSION
+FEATURES_JSON = DATA_DIR / "features.json"
 CANDIDATE_GROUPS = ["faith", "wisdom", "strength", "intelligence", "quantum"]
 PID_PATH = REPORTS_DIR / "retrain_latest.pid"
 LOG_PATH = REPORTS_DIR / "retrain_latest.log"
@@ -527,7 +531,7 @@ def _current_max_labeled_era() -> str | None:
     """Return the latest usable labeled era across train + validation, excluding validation test rows."""
     try:
         import pyarrow.parquet as pq
-        data_dir = PROJECT_ROOT / "data" / "numerai" / "v5.2"
+        data_dir = DATA_DIR
         eras: list[str] = []
         train_path = data_dir / "train.parquet"
         if train_path.exists():
@@ -577,21 +581,44 @@ def _run_weekly_retrain_worker(force: bool = False) -> int:
                 last_meta = _load_meta(metas[-1])
                 last_end = str(last_meta.get("era_window_end", ""))
                 current_max = _current_max_labeled_era()
-                if current_max is not None and current_max == last_end:
+                try:
+                    stalled = current_max is not None and int(current_max) <= int(last_end)
+                except (TypeError, ValueError):
+                    stalled = current_max is not None and current_max == last_end
+                if stalled:
+                    if current_max == last_end:
+                        reason = (
+                            f"Era window unchanged — last submission already covers up to era {last_end}. "
+                            "Pass force=True to retrain anyway."
+                        )
+                        print(f"Skipping retrain: labeled validation data still ends at era {last_end}.")
+                    else:
+                        # Labeled data ends EARLIER than the live model's window. Retraining here
+                        # would ship a model fit on strictly older data than the one already live,
+                        # so refuse rather than silently downgrade. Seen on 2026-08-09 when the
+                        # v5.3 target switched to ender_60 and the validation boundary retreated
+                        # from 1225 to 1218. Pass force=True once the regression is understood.
+                        reason = (
+                            f"Era window went BACKWARDS — labeled data now ends at era {current_max}, "
+                            f"but the last submission covers up to era {last_end}. Retraining would fit "
+                            "on strictly older data than the live model. Investigate before passing force=True."
+                        )
+                        print(
+                            f"Refusing retrain: labeled data ends at era {current_max}, "
+                            f"behind the live model's era {last_end}."
+                        )
                     _write_retrain_status(
                         {
                             "status": "skipped",
-                            "reason": (
-                                f"Era window unchanged — last submission already covers up to era {last_end}. "
-                                "Pass force=True to retrain anyway."
-                            ),
+                            # stalled already implies current_max <= last_end
+                            "era_regression": current_max != last_end,
+                            "reason": reason,
                             "last_era_window": f"{last_meta.get('era_window_start')} – {last_end}",
                             "last_built_date": last_meta.get("built_date"),
                             "current_max_era": current_max,
                             "updated_at": _status_timestamp(),
                         }
                     )
-                    print(f"Skipping retrain: labeled validation data still ends at era {last_end}.")
                     return 0
 
         _write_retrain_status(
