@@ -5,8 +5,7 @@
 > other agents read it via `AGENTS.md`. Edit the procedure here, not in the agent-specific
 > wrappers.
 
-The operational loop that keeps the live models ([ANGOSTURA](https://numer.ai/angostura),
-[PIXELATED](https://numer.ai/pixelated), [TAILSPIN](https://numer.ai/tailspin)) current.
+The operational loop that keeps the live models ([TAILSPIN](https://numer.ai/tailspin)) current.
 
 **What this does and does not do.** This loop takes the *already-chosen champion strategy* —
 the config baked into `custom_mcp/make_submission.py` — and re-fits it on the latest era of
