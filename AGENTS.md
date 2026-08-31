@@ -14,7 +14,7 @@ also exposes them as auto-triggering skills under `.claude/skills/`, but the con
 same.)
 
 - **Weekly live submission** — `playbooks/weekly-submission.md`. Run this for the routine
-  weekly retrain-QA-report-and-submit of the deployed champion. It re-fits the existing
+  weekly retrain-QA-report-submit-and-push of the deployed champion. It re-fits the existing
   strategy on fresh data; it does not change the strategy.
 - **AutoResearch finetuning** — `playbooks/autoresearch.md`. Run this to improve/finetune the
   strategy (new features, targets, hyperparameters, models) and to promote a new champion

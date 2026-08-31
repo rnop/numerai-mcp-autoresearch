@@ -27,3 +27,5 @@ Non-negotiables to keep front of mind while you read it:
 - **Always upload to the TAILSPIN model slot** — never ANGOSTURA or PIXELATED.
 - **Honor the era-window skip** (`status="skipped"` = no new data = nothing to submit) and
   the **Python 3.11 docker image** requirement for upload.
+- **Finish by pushing.** When the request mentions commits, step 7 ends with
+  `git push origin master` — a commit that never reaches GitHub doesn't count as a run.

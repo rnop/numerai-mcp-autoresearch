@@ -69,8 +69,11 @@ the fallback, not a different procedure.
 - **"run weekly retrain"** → run steps 1–5 and **stop before upload**; report that the build
   is QA-passed and ready, and offer to submit.
 - **"run weekly retrain and submission"** (or "submit", "run the weekly pipeline end to end")
-  → run steps 1–6 including the live upload to TAILSPIN. No extra confirmation needed beyond
+  → run steps 1–7 including the live upload to TAILSPIN. No extra confirmation needed beyond
   this phrasing; the QA gate (step 3) is still a hard stop.
+- **"run weekly retrain, submission, and commits"** → same as above, and step 7 is
+  **non-negotiable**: commit *and* `git push origin master`. Don't stop at the commit and
+  don't ask whether to push — this phrasing is the standing authorization.
 
 ## The weekly loop
 
@@ -150,8 +153,40 @@ wrong slot is a live-stakes mistake.
 `upload_model` operations directly (`get_upload_auth` → PUT → `create` → `list` → `assign`)
 with the same TAILSPIN id and 3.11 image — the helper just automates exactly that.
 
+### 7. Commit and push
+
+The run isn't finished until it's on GitHub. Unpushed commits earn no contribution squares,
+which is how two weekly runs once went missing from the graph.
+
+Stage only what the loop produced — `docs/<ISO-week>_weekly_report.md`, the matching
+`.html`, `docs/retrain_latest_status.json`, and `docs/index.html` if it changed. Pickles and
+`artifacts/` are gitignored by design; leave unrelated untracked files alone rather than
+sweeping them in with `git add -A`.
+
+```bash
+git add docs/<ISO-week>_weekly_report.md docs/<ISO-week>_weekly_report.html docs/retrain_latest_status.json
+git commit -F <message-file>
+git push origin master
+```
+
+Commit subject: `Weekly W<NN>: retrain and submission on the v5.3 quantum champion`. When a
+second build lands inside the same ISO week (a new era arrived mid-week, so the guard passed
+and the report was regenerated in place), disambiguate with the live era —
+`Weekly W<NN> (live era <E>): ...` — so the two commits don't read identically.
+
+Run the loop on **master in the main repo**, not a worktree, so the push goes straight to the
+default branch. Verify afterwards that `git status -sb` shows no `[ahead N]`; that residue is
+the exact failure this step exists to prevent.
+
+Two gotchas worth remembering. Write multi-line commit messages with `git commit -F <file>`
+— PowerShell here-string syntax (`@'...'@`) piped through the Bash tool leaks a literal `@`
+into the subject line. And GitHub's contribution calendar is keyed to the **UTC** author
+date, so an evening US commit can land on the following day's square; that's cosmetic, not a
+failed push.
+
 ## Reporting back to the user
 
 Close the loop with a short summary: the era window that was trained, the QA verdict,
-notable feature changes, the report path, and the upload result. If the run was skipped (no
-new data) or failed QA, lead with that — it's the most important thing for the user to know.
+notable feature changes, the report path, the upload result, and the pushed commit. If the
+run was skipped (no new data) or failed QA, lead with that — it's the most important thing
+for the user to know.
