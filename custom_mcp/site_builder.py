@@ -17,6 +17,8 @@ if str(ROOT) not in sys.path:
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
+from custom_mcp.meta_index import sorted_metas
+
 REPORTS_DIR = ROOT / "docs"
 EXPERIMENTS_TSV = ROOT / "experiments" / "results.tsv"
 FEATURE_ANALYSIS_DIR = ROOT / "artifacts" / "feature_analysis"
@@ -103,7 +105,7 @@ def _load_public_train_feature_config() -> tuple[list[str], list[str]]:
 
 def _load_latest_selected_features() -> list[str]:
     submissions_dir = ROOT / "submissions"
-    meta_paths = sorted(submissions_dir.glob("*_meta.json"), key=lambda p: p.stat().st_mtime)
+    meta_paths = sorted_metas(submissions_dir)
     if not meta_paths:
         return []
     meta = _load_json(meta_paths[-1])
@@ -112,7 +114,7 @@ def _load_latest_selected_features() -> list[str]:
 
 def _load_latest_submission_meta() -> dict | None:
     submissions_dir = ROOT / "submissions"
-    meta_paths = sorted(submissions_dir.glob("*_meta.json"), key=lambda p: p.stat().st_mtime)
+    meta_paths = sorted_metas(submissions_dir)
     if not meta_paths:
         return None
     return _load_json(meta_paths[-1])

@@ -16,8 +16,9 @@ import json
 import os
 import subprocess
 import sys
+import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -67,6 +68,8 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
+from custom_mcp.meta_index import load_meta as _load_meta_json
+from custom_mcp.meta_index import sorted_metas as _sorted_metas_in
 from custom_mcp.site_builder import build_dashboard, build_report_html
 from prepare import refresh_data
 
@@ -111,12 +114,16 @@ def _group_features(features: list[str]) -> dict[str, list[str]]:
 
 
 def _sorted_metas() -> list[Path]:
-    """Return all *_meta.json files sorted oldest → newest by mtime."""
-    return sorted(SUBMISSIONS_DIR.glob("*_meta.json"), key=lambda p: p.stat().st_mtime)
+    """Return all *_meta.json files sorted oldest → newest by recorded build time.
+
+    Ordering lives in custom_mcp/meta_index.py so the dashboard builder agrees
+    with the tools about which submission is the latest.
+    """
+    return _sorted_metas_in(SUBMISSIONS_DIR)
 
 
 def _load_meta(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _load_meta_json(path)
 
 
 def _status_timestamp() -> str:
@@ -134,6 +141,30 @@ def _read_retrain_status() -> dict[str, object] | None:
         return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+def _read_pid() -> int | None:
+    """Read the worker PID file, tolerating a missing, empty, or corrupt file."""
+    try:
+        return int(PID_PATH.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _is_weekly_worker(pid: int) -> bool:
+    """True only if `pid` is a live process running this file as --weekly-worker.
+
+    The PID file outlives reboots and Windows recycles PIDs aggressively, so a
+    bare pid_exists() / terminate() on a stale PID can report a phantom job — or
+    kill an unrelated process that happens to have inherited the number.
+    """
+    try:
+        import psutil
+
+        cmdline = " ".join(psutil.Process(pid).cmdline())
+    except Exception:
+        return False
+    return "--weekly-worker" in cmdline and Path(__file__).name in cmdline
 
 
 def _format_metric(value: object, digits: int = 5) -> str:
@@ -284,12 +315,72 @@ def _compute_live_report_metrics(meta_path: Path, meta: dict) -> dict[str, objec
         return {}
 
 
-def _compute_live_prediction_diagnostics(meta_path: Path, meta: dict) -> dict[str, object]:
+# Bump when the cached live_diagnostics payload changes shape, so old caches
+# are recomputed rather than misread.
+LIVE_DIAGNOSTICS_CACHE_VERSION = 1
+
+
+def _file_signature(path: Path) -> str | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return f"{stat.st_size}:{stat.st_mtime_ns}"
+
+
+def _live_cache_key(pkl_path: Path) -> dict[str, object]:
+    """Identify the exact (live batch, model) pair a diagnostics run scored."""
+    try:
+        from prepare import get_data_path
+
+        return {
+            "version": LIVE_DIAGNOSTICS_CACHE_VERSION,
+            "live": _file_signature(get_data_path("live")),
+            "live_benchmarks": _file_signature(get_data_path("live_benchmarks")),
+            "model": _file_signature(pkl_path),
+        }
+    except Exception as exc:
+        # Never let a key we cannot compute look like a cache hit.
+        return {"version": LIVE_DIAGNOSTICS_CACHE_VERSION, "error": str(exc)}
+
+
+def _refresh_live_data() -> str | None:
+    """Re-download just the live split. Returns an error message, or None on success."""
+    try:
+        from prepare import refresh_data as _refresh
+
+        _refresh(include_live=True, dataset_names=["live", "live_benchmarks"])
+        return None
+    except Exception as exc:
+        return str(exc)
+
+
+def _compute_live_prediction_diagnostics(
+    meta_path: Path,
+    meta: dict,
+    refresh: bool = False,
+) -> dict[str, object]:
+    """Score the live split and cache the verdict against that batch's identity.
+
+    The cached payload is only reused when the live parquet, the live benchmark
+    parquet, and the model pickle are all byte-for-byte what they were when the
+    verdict was produced. Without that check a stale `pass` from a previous
+    round is returned for live data it never scored.
+    """
+    pkl_path = SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl")
+
+    refresh_error = _refresh_live_data() if refresh else None
+
+    cache_key = _live_cache_key(pkl_path)
     cached = meta.get("live_diagnostics")
-    if isinstance(cached, dict) and cached:
+    if (
+        not refresh
+        and isinstance(cached, dict)
+        and cached
+        and cached.get("cache_key") == cache_key
+    ):
         return cached
 
-    pkl_path = SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl")
     if not pkl_path.exists():
         return {"status": "error", "message": f"Missing pickle artifact: {pkl_path.name}"}
 
@@ -406,10 +497,42 @@ def _compute_live_prediction_diagnostics(meta_path: Path, meta: dict) -> dict[st
         else:
             add_check("benchmark_corr", "pass", f"abs corr(pred, {benchmark_col}) is {abs_benchmark_corr:.3f}.")
 
+        # Nothing in the pipeline re-downloads live.parquet on its own, so a run
+        # can quietly score a batch from weeks ago. Surface the age as a check
+        # rather than letting a stale batch earn a silent pass.
+        live_mtime = None
+        try:
+            live_mtime = get_data_path("live").stat().st_mtime
+        except OSError:
+            live_mtime = None
+        if live_mtime is None:
+            add_check("live_data_freshness", "fail", "Live parquet is missing.")
+        else:
+            age_days = (time.time() - live_mtime) / 86400.0
+            summary["live_data_downloaded_at"] = (
+                datetime.fromtimestamp(live_mtime, timezone.utc).replace(microsecond=0).isoformat()
+            )
+            summary["live_data_age_days"] = round(age_days, 2)
+            if age_days > 8:
+                add_check(
+                    "live_data_freshness",
+                    "fail",
+                    f"Live parquet is {age_days:.1f} days old — this QA scored a stale batch.",
+                )
+            elif age_days > 2:
+                add_check("live_data_freshness", "warn", f"Live parquet is {age_days:.1f} days old.")
+            else:
+                add_check("live_data_freshness", "pass", f"Live parquet is {age_days:.1f} days old.")
+
         severity_order = {"pass": 0, "warn": 1, "fail": 2}
         summary["checks"] = checks
         summary["status"] = max(checks, key=lambda item: severity_order[item["status"]])["status"]
         summary["ready_for_submission"] = summary["status"] != "fail"
+        summary["cache_key"] = cache_key
+        summary["computed_at"] = _status_timestamp()
+        summary["live_data_refreshed"] = bool(refresh) and refresh_error is None
+        if refresh_error:
+            summary["live_data_refresh_error"] = refresh_error
 
         artifacts_dir = PROJECT_ROOT / "artifacts"
         artifacts_dir.mkdir(exist_ok=True)
@@ -693,13 +816,14 @@ def run_weekly_retrain(force: bool = False) -> dict:
     SUBMISSIONS_DIR.mkdir(exist_ok=True)
     REPORTS_DIR.mkdir(exist_ok=True)
 
-    # Terminate any previous run that is still alive.
-    if PID_PATH.exists():
+    # Terminate any previous run that is still alive — but only after confirming
+    # the PID really is our worker, never on the recorded number alone.
+    old_pid = _read_pid()
+    if old_pid is not None and _is_weekly_worker(old_pid):
         try:
-            old_pid = int(PID_PATH.read_text().strip())
             import psutil
-            p = psutil.Process(old_pid)
-            p.terminate()
+
+            psutil.Process(old_pid).terminate()
         except Exception:
             pass
 
@@ -742,21 +866,15 @@ def check_retrain_status() -> dict:
     log, and — when finished — the same result fields as the old blocking
     run_weekly_retrain: era_window, best_iteration, wall_clock_seconds, etc.
     """
-    if not PID_PATH.exists():
+    pid = _read_pid()
+    if pid is None:
         status_payload = _read_retrain_status()
         if status_payload:
             return status_payload
         return {"status": "no_job", "message": "No retrain job found. Call run_weekly_retrain() first."}
 
-    pid = int(PID_PATH.read_text().strip())
-
-    # Check if the process is still alive.
-    running = False
-    try:
-        import psutil
-        running = psutil.pid_exists(pid)
-    except Exception:
-        running = False
+    # Alive *and* actually our worker — a recycled PID must not read as running.
+    running = _is_weekly_worker(pid)
 
     log_tail = ""
     if LOG_PATH.exists():
@@ -856,10 +974,18 @@ def get_training_summary() -> dict:
 
 
 @mcp.tool()
-def check_live_predictions() -> dict:
+def check_live_predictions(refresh: bool = True) -> dict:
     """
     Score the current live split with the latest packaged submission model and
     write distribution QA artifacts into artifacts/.
+
+    By default this re-downloads live.parquet + live_benchmark_models.parquet
+    (~13 MB) first, so the verdict is about the batch that is live *now* — no
+    other step in the weekly pipeline refreshes them. Pass refresh=False to
+    score whatever is already on disk.
+
+    A cached verdict is reused only when the live data and the model pickle are
+    unchanged since it was produced; otherwise the QA is re-run.
 
     Returns a pass / warn / fail verdict, summary distribution stats, and
     artifact paths for the plot, CSV, and cached JSON summary.
@@ -870,7 +996,7 @@ def check_live_predictions() -> dict:
 
     meta_path = metas[-1]
     meta = _load_meta(meta_path)
-    diagnostics = _compute_live_prediction_diagnostics(meta_path, meta)
+    diagnostics = _compute_live_prediction_diagnostics(meta_path, meta, refresh=refresh)
     diagnostics["meta_path"] = str(meta_path)
     diagnostics["pkl_path"] = str(SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl"))
     return diagnostics

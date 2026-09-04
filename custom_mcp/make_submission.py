@@ -317,9 +317,12 @@ def main() -> None:
         f.write(p)
 
     # Write metadata so retrains are traceable
-    from datetime import date
+    from datetime import date, datetime, timezone
     meta = {
         "built_date": str(date.today()),
+        # Full timestamp so two builds on the same day still order correctly;
+        # custom_mcp/meta_index.py prefers this over the date-only field.
+        "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "target": MAIN_TARGET,
         "model": "xgboost",
         "era_window_start": window_eras[0],
