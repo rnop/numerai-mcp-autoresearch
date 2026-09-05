@@ -1,23 +1,38 @@
 # Numerai MCP + Autoresearch Project
 
-GitHub Pages: <a href="https://rnop.github.io/numerai-mcp-autoresearch/" target="_blank">View Research Overview</a>
+GitHub Pages: <a href="https://rnop.github.io/numerai-mcp-autoresearch/" target="_blank">View Live Deployment and Autoresearch HTML Report</a>
 
 ## Overview
 
 This is an agentic autoresearch and deployment harness for Numerai classic tournament that combines:
 
-- Orchestrating agents with instructions in `program.md`, `AGENTS.md` (Codex), and `CLAUDE.md` (Claude Code)
-- Karpathy-inspired autoresearch structure in `autoresearch-src/prepare.py`, `autoresearch-src/train.py`, and `program.md` for feature analysis, experimentation loop, and logging results
+- Orchestrating agents with instructions in `program.md` (agent-neutral - Claude, Codex, etc.)
+- Autoresearch inspired by Karpathy in `autoresearch-src/prepare.py`, `autoresearch-src/train.py`, and `program.md` for feature analysis, experimentation loop, and logging results. 
 - Feature analysis with dynamic per-era feature selection
 - Bayesian optimization with Optuna and MLflow-backed experiment tracking
 - Walk-forward training and time-series cross-validation
-- Custom MCP server in both Python and TypeScript + Numerai's official MCP server with agent skills for weekly retraining, data drift, predictions, and submissions
+- Custom MCP server in both Python and TypeScript + Numerai's official MCP server with agent skills for weekly retraining, data drift analysis, predictions, and submissions
 - Structured weekly submissions with generated HTML summary reports
+
+## Weekly MCP orchestration prompt
+
+Agent skills, tools, and instructions are written in the playbook located at `playbooks/weekly-submission.md`. 
+
+The playbook connects the agent to the custom MCP + Numerai's official MCP with skills for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
+
+Agent-neutral (Claude, Codex, etc.) weekly prompt: 
+
+```md
+Follow the instructions in `playbooks/weekly-submission.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
+```
 
 ## Main Files
 
+**Agent instructions:**
 - `AGENTS.md` and `CLAUDE.md`:
   Collaboration instructions used to steer agent behavior during research
+
+**Autoresearch for data analysis, experimentation, and machine learning:**
 - `autoresearch-src/train.py`:
   Main research loop for validation runs. Supports walk-forward evaluation and
   dynamic feature selection
@@ -29,6 +44,8 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
   Exploratory feature analysis workflow for dynamic feature selection
 - `autoresearch-src/bayesian_tune.py`: 
   Setup Bayesian optimization with Optuna + MLflow experiment tracking
+
+**MCP with skills for weekly orchestration and reporting:**
 - `custom_mcp/make_submission.py`:
   Operational live-model packaging and weekly retrain entrypoint
 - `custom_mcp/server.py`:
@@ -38,7 +55,10 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
 - `custom_mcp/site_builder.py`:
   HTML report and dashboard generator for weekly and research outputs
 - `docs/index.html`:
-  A browser-friendly HTML page organizing experiment summaries, weekly reports, and feature analysis
+  A browser-friendly HTML home page organizing experiment summaries, weekly reports, and feature analysis
+- `docs/example_weekly_report.html`: Weekly operations report covering the currently deployed model, feature changes, and training configuration.
+- `docs/feature_analysis_report.html`: Interactive feature and feature-set evaluation metrics across validation eras.
+
 
 ## System architecture
 
@@ -106,55 +126,7 @@ The live deployed strategy showcased here centers on:
 - Validation evals: `val_corr_mean = 0.01545`, `val_mmc_mean = 0.00270`
 - Baseline evals: `val_corr_mean = 0.00932`, `val_mmc_mean = 0.00144`
 
-Follow the models here:
+### Follow the models here:
 - [ANGOSTURA](https://numer.ai/angostura)
 - [PIXELATED](https://numer.ai/pixelated)
 - [TAILSPIN](https://numer.ai/tailspin)
-
-
-## Weekly MCP orchestration playbook
-
-To make the agent workflow explicit, the repo documents the weekly operations loop as a
-canonical, agent-neutral playbook in `playbooks/weekly-submission.md`.
-
-The playbook connects the agent to the custom MCP + Numerai's official MCP for weekly
-retraining, validation, data drift analysis, feature comparison, report generation, and
-model uploads. Claude Code exposes it as the auto-triggering `weekly-submission` skill
-(`.claude/skills/weekly-submission/`); Codex and other agents reach the same playbook via
-`AGENTS.md`:
-
-```md
-Follow the instructions in `playbooks/weekly-submission.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
-```
-
-## TypeScript MCP server
-
-The repo now includes a sibling TypeScript implementation of the weekly MCP server:
-
-- Source: `custom_mcp/server.ts`
-- Runnable JS artifact: `custom_mcp/server.js`
-- Python bridge for parquet/report helpers: `custom_mcp/ts_bridge.py`
-
-If you want to point an MCP client at the TypeScript version instead of the Python version, use:
-
-```json
-{
-  "mcpServers": {
-    "numerai-weekly-ts": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["custom_mcp/server.js"]
-    }
-  }
-}
-```
-
-The TypeScript server keeps the Python training and report internals intact. It handles MCP transport, tool routing, process orchestration, metadata diffs, and report assembly in TypeScript, then calls Python only where the project already depends on Python-specific runtime behavior.
-
-## Weekly Reports
-
-The agent uses `custom_mcp/site_builder.py` to generate an HTML layer from evaluated artifacts that can be opened in any browser:
-
-- `docs/index.html` — Research Experiments Overview: a dashboard-style landing page with experiment leaderboard, best-metric cards, and links to all reports.
-- `docs/example_weekly_report.html` — weekly operations report covering the currently deployed model, feature changes, and training configuration.
-- `docs/feature_analysis_report.html` — interactive feature and feature-set evaluation metrics across validation eras.
