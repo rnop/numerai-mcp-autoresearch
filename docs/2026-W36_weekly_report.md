@@ -1,0 +1,147 @@
+# Numerai Weekly Report — 2026-W36 | Live Era 1223
+
+**Model:** tailspin | **Built:** 2026-09-05 | **Era window:** 1081 – 1222 | **Live submission era:** 1223
+
+---
+
+## Feature Changes vs Previous Week
+
+> Previous build: **2026-08-30** — era window 1080 – 1221
+
+| | Count |
+| --- | --- |
+| Total features (current) | 120 |
+| Added this week | 13 |
+| Removed this week | 13 |
+| Retained | 107 |
+
+**Added** (13 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| faith | 1 | `feature_pocky_revolved_anglomania` |
+| intelligence | 1 | `feature_giddied_smooth_circumvallation` |
+| quantum | 11 | `feature_bothered_friended_methotrexate`, `feature_congratulatory_precisive_shechinah`, `feature_geodic_couth_zibet`, `feature_grouped_wasted_patina`, +7 more |
+
+**Removed** (13 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| faith | 3 | `feature_aerodynamical_exhibitive_keyword`, `feature_exuvial_curdier_surfperch`, `feature_incidental_unelectrified_corinthian` |
+| quantum | 9 | `feature_agraphic_semifinished_withholder`, `feature_binaural_gyroscopic_sulcation`, `feature_dismounted_sexological_ringworm`, `feature_foreseeable_told_breaking`, +5 more |
+| strength | 1 | `feature_discrete_bicuspidate_bricole` |
+
+**Retained** (107 features)
+
+| Group | Count | Sample Features |
+| --- | --- | --- |
+| extra | 4 | `feature_different_wilier_burweed`, `feature_imminent_unobserved_lengthening`, `feature_readier_reversed_accusal`, `feature_tonal_illuminating_porgy` |
+| faith | 18 | `feature_attachable_martinique_beg`, `feature_cased_nicene_lymphoma`, `feature_demiurgic_hedgiest_plaque`, `feature_faustian_rescued_heterotopia`, +14 more |
+| intelligence | 6 | `feature_capreolate_philharmonic_mazzard`, `feature_esemplastic_droopier_scad`, `feature_flawier_oversized_sophism`, `feature_melismatic_daily_freak`, +2 more |
+| quantum | 74 | `feature_acceleratory_purloined_balaklava`, `feature_advisory_environmental_canister`, `feature_anecdotical_psephological_preventive`, `feature_antiquated_slanting_zeugma`, +70 more |
+| strength | 2 | `feature_choreic_sterilized_lagune`, `feature_debonnaire_opulent_stayer` |
+| wisdom | 3 | `feature_circulative_devolution_cittern`, `feature_heliconian_vociferant_cheechako`, `feature_unguessed_abroach_wingman` |
+
+
+---
+
+## Target Analysis
+
+**Current target:** `target_ender_60`
+
+This model is trained on `target_ender_60` as established by the v5.2 feature analysis. This target
+was selected because it provides the best generalization for MMC in walk-forward testing.
+
+> A dynamic target recommendation system is planned for a future update. Until then,
+> `target_ender_60` remains the fixed default.
+
+---
+
+## Top Statistics
+
+**Model Snapshot**
+
+| Metric | Value |
+| --- | --- |
+| Live training target | `target_ender_60` |
+| Validation target | `target_ender_20` |
+| MMC benchmark | `v53_lgbm_ender20` |
+| Training: CORR mean | 0.03016 |
+| Training: MMC mean | 0.00614 |
+| Training Sharpe | 2.529 |
+| Validation: CORR mean | 0.02111 |
+| Validation: MMC mean | 0.00503 |
+| Validation Sharpe | 2.053 |
+
+---
+
+## Live Prediction QA
+
+
+### Visualization
+
+![Live prediction QA plot](../artifacts/live_prediction_distribution_train_1081_1222.png)
+
+The chart combines the raw histogram, sorted prediction curve, benchmark exposure scatter, and percentile-ranked distribution for the current live batch.
+
+
+**Distribution Check**
+
+| Metric | Value |
+| --- | --- |
+| Verdict | PASS |
+| Ready for submission | yes |
+| Rows scored | 6940 |
+| Prediction std | 0.00562 |
+| Prediction p99-p01 spread | 0.02544 |
+| Duplicate fraction | 0.00000 |
+| Benchmark corr | 0.21349 |
+
+| Check | Status | Details |
+| --- | --- | --- |
+| row_count | PASS | Scored 6,940 live rows. |
+| dispersion | PASS | Prediction std is 0.005624. |
+| tail_spread | PASS | Prediction p99-p01 spread is 0.025439. |
+| duplicates | PASS | Duplicate prediction fraction is 0.000%. |
+| benchmark_corr | PASS | abs corr(pred, v53_lgbm_ender20) is 0.213. |
+| live_data_freshness | PASS | Live parquet is 0.0 days old. |
+
+| Artifact | Path |
+| --- | --- |
+| Distribution plot | `../artifacts/live_prediction_distribution_train_1081_1222.png` |
+| Scored CSV | `../artifacts/live_predictions_train_1081_1222.csv` |
+| Summary JSON | `../artifacts/live_prediction_distribution_train_1081_1222_summary.json` |
+
+---
+
+## Artifact Details
+
+| Metric | Value |
+| --- | --- |
+| Built date | 2026-09-05 |
+| Model type | XGBoost (GPU) |
+| Best iteration | 1040 |
+| Wall clock time | 128.8s |
+| Pickle size | 0.95 MB |
+
+---
+
+## Training Configuration
+
+| Parameter | Value |
+| --- | --- |
+| Target | `target_ender_60` |
+| Era window | 1081 – 1222 |
+| Era count | 142 |
+| Lookback eras | 142 |
+| Trailing eras (feature ranking) | 20 |
+| Top-K features selected | 120 |
+| Feature pool size | 1506 |
+| Fit eras | 132 |
+| Early stopping eras | 10 |
+| Best iteration | 1040 |
+| Benchmark neutralization | 0.1 vs `v53_lgbm_ender20` |
+
+---
+
+_Generated by numerai-weekly MCP on 2026-09-05 14:16._
