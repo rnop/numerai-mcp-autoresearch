@@ -46,7 +46,7 @@ higher `research_score` when MMC gains are close. Walk-forward mode (~100 sequen
 4. **Establish the baseline — and don't trust `train.py`'s current state.** The constants
    sitting in `train.py` are just whatever the *last experiment* left behind; they are **not**
    the champion. Before measuring anything, reconstruct the champion's strategy:
-   - The deployed config lives in `custom_mcp/make_submission.py`, and the validated champion
+   - The deployed config lives in `pipeline/make_submission.py`, and the validated champion
      row is in `experiments/results.tsv` (the committed leaderboard). As of this writing the
      champion is the **walkforward + dynamic-features** XGBoost on `target_ender_60`, top_k=60,
      trailing=20, lookback=142, 10% neutralization — read the actual files rather than trusting
@@ -90,7 +90,7 @@ trips people up: an experiment can be logged yet never appear on the dashboard.
   6-column format above, one row per experiment. Ephemeral and never committed (per
   `program.md`). It does **not** feed any report.
 - **`experiments/results.tsv` (committed)** — the curated leaderboard that
-  `custom_mcp/site_builder.py` renders into `docs/index.html`. It uses a richer schema (`run`,
+  `pipeline/site_builder.py` renders into `docs/index.html`. It uses a richer schema (`run`,
   `date`, `model`, `target`, `feature_pool`, `top_k`, `trailing`, `bmark_neutralization`,
   `hyperparams`, the `val_*` metrics, `corr_era_count`, `wall_clock_s`, `notes`).
 
@@ -110,7 +110,7 @@ model, so that's the user's call, not the loop's.
 
 This is the handoff to the weekly-submission playbook (`playbooks/weekly-submission.md`).
 When a finetuned config beats the champion **and the user decides to deploy it**, the new
-config has to move from `autoresearch-src/train.py` into `custom_mcp/make_submission.py`,
+config has to move from `autoresearch-src/train.py` into `pipeline/make_submission.py`,
 which builds the live pickle. Do this deliberately — it changes what gets submitted to the
 tournament.
 
@@ -151,7 +151,7 @@ and selects features per-era from a short trailing window). So promotion is a
   neutralization target inside `make_submission.py`'s `predict()`.
 
 After editing `make_submission.py`, do a dry retrain to confirm the live build still packages
-cleanly (the weekly loop's `run_weekly_retrain` → `check_retrain_status` →
-`check_live_predictions` chain is the right smoke test), then hand back to the normal weekly
+cleanly (the weekly loop's `retrain` → `status` →
+`qa` commands in `pipeline.weekly` are the right smoke test), then hand back to the normal weekly
 loop. Commit the promotion on master (or via PR) with a message that references the winning
 experiment commit, so the live strategy stays traceable to the research that produced it.

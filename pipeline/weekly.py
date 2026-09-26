@@ -1,17 +1,24 @@
 """
-Numerai Weekly Submission MCP Server
+Numerai weekly submission pipeline: the agent's tool surface.
 
-Tools for the full weekly workflow:
-  run_weekly_retrain       — run custom_mcp/make_submission.py, download fresh data, train
-  check_retrain_status     — poll the background training job
-  get_training_summary     — read latest metadata JSON, return config snapshot
-  compare_weekly_features  — diff this week's features vs last week by group
-  generate_weekly_report   — write docs/YYYY-WW_weekly_report.md
+Each public function is one tool. It does one job, returns a JSON-serialisable
+dict, and says what the agent should do next via a `next` field. The CLI at the
+bottom exposes the same functions to any agent that can run a shell command:
 
-Upload is handled by the official Numerai MCP (mcp__numerai__upload_model).
+    python -m pipeline.weekly retrain [--force]   start the background retrain
+    python -m pipeline.weekly status              poll it
+    python -m pipeline.weekly qa [--no-refresh]   score live and return pass/warn/fail (the upload gate)
+    python -m pipeline.weekly summary             config snapshot of the latest build
+    python -m pipeline.weekly diff                feature drift vs last week
+    python -m pipeline.weekly report              write docs/YYYY-WW_weekly_report.{md,html}
+
+Exit codes: 0 = ok, 1 = error, 2 = blocked by a gate (QA fail, or a retrain the
+era guard refused). Upload is not here: pipeline/upload_to_tailspin.py drives the
+official Numerai MCP server, the one external service this project talks to.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -21,18 +28,18 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastmcp import FastMCP
-
 # ---------------------------------------------------------------------------
 # Paths & constants
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CUSTOM_MCP_DIR = Path(__file__).resolve().parent
+PIPELINE_DIR = Path(__file__).resolve().parent
 SUBMISSIONS_DIR = PROJECT_ROOT / "submissions"
 REPORTS_DIR = PROJECT_ROOT / "docs"
 PYTHON_EXE = os.environ.get("NUMERAI_PYTHON", sys.executable)
 SOURCE_DIR = PROJECT_ROOT / "autoresearch-src"
-MAKE_SUBMISSION = str(CUSTOM_MCP_DIR / "make_submission.py")
+MAKE_SUBMISSION = str(PIPELINE_DIR / "make_submission.py")
+WORKER_MODULE = "pipeline.weekly"
+WORKER_COMMAND = "_worker"
 # Must match DATA_VERSION in autoresearch-src/prepare.py — the guard and the
 # training run have to read the same dataset or the era check is meaningless.
 DATA_VERSION = "v5.3"
@@ -68,12 +75,10 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
-from custom_mcp.meta_index import load_meta as _load_meta_json
-from custom_mcp.meta_index import sorted_metas as _sorted_metas_in
-from custom_mcp.site_builder import build_dashboard, build_report_html
+from pipeline.meta_index import load_meta as _load_meta_json
+from pipeline.meta_index import sorted_metas as _sorted_metas_in
+from pipeline.site_builder import build_dashboard, build_report_html
 from prepare import refresh_data
-
-mcp = FastMCP("numerai-weekly")
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -116,7 +121,7 @@ def _group_features(features: list[str]) -> dict[str, list[str]]:
 def _sorted_metas() -> list[Path]:
     """Return all *_meta.json files sorted oldest → newest by recorded build time.
 
-    Ordering lives in custom_mcp/meta_index.py so the dashboard builder agrees
+    Ordering lives in pipeline/meta_index.py so the dashboard builder agrees
     with the tools about which submission is the latest.
     """
     return _sorted_metas_in(SUBMISSIONS_DIR)
@@ -152,7 +157,7 @@ def _read_pid() -> int | None:
 
 
 def _is_weekly_worker(pid: int) -> bool:
-    """True only if `pid` is a live process running this file as --weekly-worker.
+    """True only if `pid` is a live process running this module's worker command.
 
     The PID file outlives reboots and Windows recycles PIDs aggressively, so a
     bare pid_exists() / terminate() on a stale PID can report a phantom job — or
@@ -164,7 +169,7 @@ def _is_weekly_worker(pid: int) -> bool:
         cmdline = " ".join(psutil.Process(pid).cmdline())
     except Exception:
         return False
-    return "--weekly-worker" in cmdline and Path(__file__).name in cmdline
+    return WORKER_MODULE in cmdline and WORKER_COMMAND in cmdline
 
 
 def _format_metric(value: object, digits: int = 5) -> str:
@@ -644,10 +649,36 @@ def _compute_live_prediction_diagnostics(
         return {"status": "error", "message": str(exc), "ready_for_submission": False}
 
 
+def _next_for_retrain(payload: dict) -> str:
+    """The agent's next step for a given retrain state, so it never has to guess."""
+    status = payload.get("status")
+    if status == "completed":
+        return "Run `qa`; it is the upload gate."
+    if status == "skipped":
+        if payload.get("era_regression"):
+            return (
+                "STOP. Labeled data moved backwards behind the live model. Report it to the user; "
+                "only rerun with `retrain --force` once the cause is understood. Do not upload."
+            )
+        return "STOP. No new era since the last submission, so there is nothing to submit this week."
+    if status == "failed":
+        return "STOP. Read log_tail for the error and report it. Do not upload."
+    if status == "no_job":
+        return "Run `retrain` first."
+    return "Still running. Poll `status` again in a minute or two."
+
+
+def _next_for_qa(payload: dict) -> str:
+    status = payload.get("status")
+    if status == "pass":
+        return "QA passed. Continue with `summary`, `diff`, then `report`."
+    if status == "warn":
+        return "QA warned. Tell the user which checks warned; uploading is allowed if they accept it."
+    return "STOP. QA failed or errored. Do not upload; report the failing checks and the retrain log."
 
 
 # ---------------------------------------------------------------------------
-# MCP Tools
+# Tools
 # ---------------------------------------------------------------------------
 
 def _current_max_labeled_era() -> str | None:
@@ -676,7 +707,7 @@ def _current_max_labeled_era() -> str | None:
         return None
 
 
-def _run_weekly_retrain_worker(force: bool = False) -> int:
+def _retrain_worker(force: bool = False) -> int:
     try:
         _write_retrain_status(
             {
@@ -712,7 +743,7 @@ def _run_weekly_retrain_worker(force: bool = False) -> int:
                     if current_max == last_end:
                         reason = (
                             f"Era window unchanged — last submission already covers up to era {last_end}. "
-                            "Pass force=True to retrain anyway."
+                            "Use `retrain --force` to retrain anyway."
                         )
                         print(f"Skipping retrain: labeled validation data still ends at era {last_end}.")
                     else:
@@ -720,11 +751,11 @@ def _run_weekly_retrain_worker(force: bool = False) -> int:
                         # would ship a model fit on strictly older data than the one already live,
                         # so refuse rather than silently downgrade. Seen on 2026-08-09 when the
                         # v5.3 target switched to ender_60 and the validation boundary retreated
-                        # from 1225 to 1218. Pass force=True once the regression is understood.
+                        # from 1225 to 1218. Use --force once the regression is understood.
                         reason = (
                             f"Era window went BACKWARDS — labeled data now ends at era {current_max}, "
                             f"but the last submission covers up to era {last_end}. Retraining would fit "
-                            "on strictly older data than the live model. Investigate before passing force=True."
+                            "on strictly older data than the live model. Investigate before using `retrain --force`."
                         )
                         print(
                             f"Refusing retrain: labeled data ends at era {current_max}, "
@@ -795,23 +826,17 @@ def _run_weekly_retrain_worker(force: bool = False) -> int:
         return 1
 
 
-@mcp.tool()
-def run_weekly_retrain(force: bool = False) -> dict:
+def retrain(force: bool = False) -> dict:
     """
-    Run custom_mcp/make_submission.py with the correct Python interpreter.
+    Start the weekly retrain of the champion in a background worker.
 
-    Downloads the latest Numerai data, retrains the live model on the last
-    LOOKBACK_ERAS of history using dynamic per-step feature selection, and
-    writes a pkl + metadata JSON to submissions/.
+    The worker refreshes validation data, then checks the era window: if no new
+    labeled era has landed since the last submission, it records status="skipped"
+    and exits without training. Otherwise it runs pipeline/make_submission.py,
+    which writes a pkl + metadata JSON to submissions/. force=True skips the
+    era check.
 
-    Skips the retrain and returns status="skipped" if the era window has not
-    advanced since the last submission (i.e. no new data).  Pass force=True
-    to override this guard and retrain unconditionally.
-
-    This call returns immediately — the training job runs in the background.
-    Call check_retrain_status() to poll for completion and results.
-
-    Returns: pid, log_path, and status="running" (or status="skipped").
+    Returns immediately with the pid and log path; poll `retrain_status()`.
     """
     SUBMISSIONS_DIR.mkdir(exist_ok=True)
     REPORTS_DIR.mkdir(exist_ok=True)
@@ -839,7 +864,7 @@ def run_weekly_retrain(force: bool = False) -> dict:
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen(
-        [PYTHON_EXE, "-u", __file__, "--weekly-worker", *(["--force"] if force else [])],
+        [PYTHON_EXE, "-u", "-m", WORKER_MODULE, WORKER_COMMAND, *(["--force"] if force else [])],
         cwd=str(PROJECT_ROOT),
         stdout=log_file,
         stderr=subprocess.STDOUT,
@@ -853,25 +878,31 @@ def run_weekly_retrain(force: bool = False) -> dict:
         "status": "running",
         "pid": proc.pid,
         "log_path": str(LOG_PATH),
-        "message": "Retrain worker started in background. Call check_retrain_status() to poll refresh, guard, and training progress.",
+        "message": "Retrain worker started in the background.",
+        "next": "Poll `status` in a minute or two. A retrain usually takes a few minutes on GPU.",
     }
 
 
-@mcp.tool()
-def check_retrain_status() -> dict:
+def retrain_status() -> dict:
     """
-    Poll the background training job launched by run_weekly_retrain().
+    Poll the background retrain started by `retrain()`.
 
-    Returns the job status (running / completed / failed), the tail of the
-    log, and — when finished — the same result fields as the old blocking
-    run_weekly_retrain: era_window, best_iteration, wall_clock_seconds, etc.
+    Returns the job status (a running phase, completed, skipped, or failed), the
+    tail of the log, and a `next` instruction. On completion it also returns the
+    build's era window, best iteration, wall-clock time, and cached live QA.
     """
+    payload = _retrain_status_payload()
+    payload["next"] = _next_for_retrain(payload)
+    return payload
+
+
+def _retrain_status_payload() -> dict:
     pid = _read_pid()
     if pid is None:
         status_payload = _read_retrain_status()
         if status_payload:
             return status_payload
-        return {"status": "no_job", "message": "No retrain job found. Call run_weekly_retrain() first."}
+        return {"status": "no_job", "message": "No retrain job found."}
 
     # Alive *and* actually our worker — a recycled PID must not read as running.
     running = _is_weekly_worker(pid)
@@ -917,12 +948,6 @@ def check_retrain_status() -> dict:
     meta = _load_meta(metas[-1])
     live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], meta)
 
-    # Detect failure via returncode hint in log (make_submission prints non-zero exit).
-    log_text = LOG_PATH.read_text(encoding="utf-8", errors="replace") if LOG_PATH.exists() else ""
-    if "Traceback" in log_text or "Error" in log_text.split("RESULT_JSON")[0]:
-        # Still return the meta if it exists — the run may have partially succeeded.
-        pass
-
     return {
         "status": "completed",
         "era_window": f"{meta['era_window_start']} – {meta['era_window_end']}",
@@ -937,8 +962,7 @@ def check_retrain_status() -> dict:
     }
 
 
-@mcp.tool()
-def get_training_summary() -> dict:
+def training_summary() -> dict:
     """
     Read the latest submission metadata JSON and return a structured snapshot
     of the full training configuration: era window, lookback, trailing eras,
@@ -946,7 +970,7 @@ def get_training_summary() -> dict:
     """
     metas = _sorted_metas()
     if not metas:
-        return {"error": "No metadata JSON found in submissions/. Run run_weekly_retrain first."}
+        return {"error": "No metadata JSON found in submissions/.", "next": "Run `retrain` first."}
 
     meta = _load_meta(metas[-1])
     live_diagnostics = _compute_live_prediction_diagnostics(metas[-1], meta)
@@ -973,11 +997,10 @@ def get_training_summary() -> dict:
     }
 
 
-@mcp.tool()
-def check_live_predictions(refresh: bool = True) -> dict:
+def qa_live_predictions(refresh: bool = True) -> dict:
     """
-    Score the current live split with the latest packaged submission model and
-    write distribution QA artifacts into artifacts/.
+    The upload gate: score the current live split with the latest packaged
+    model and return a pass / warn / fail verdict. A fail means do not upload.
 
     By default this re-downloads live.parquet + live_benchmark_models.parquet
     (~13 MB) first, so the verdict is about the batch that is live *now* — no
@@ -987,23 +1010,28 @@ def check_live_predictions(refresh: bool = True) -> dict:
     A cached verdict is reused only when the live data and the model pickle are
     unchanged since it was produced; otherwise the QA is re-run.
 
-    Returns a pass / warn / fail verdict, summary distribution stats, and
-    artifact paths for the plot, CSV, and cached JSON summary.
+    Returns the verdict, the individual checks, distribution stats, and artifact
+    paths for the plot, CSV, and cached JSON summary.
     """
     metas = _sorted_metas()
     if not metas:
-        return {"error": "No metadata JSON found in submissions/. Run run_weekly_retrain first."}
+        return {
+            "status": "error",
+            "error": "No metadata JSON found in submissions/.",
+            "ready_for_submission": False,
+            "next": "Run `retrain` first.",
+        }
 
     meta_path = metas[-1]
     meta = _load_meta(meta_path)
     diagnostics = _compute_live_prediction_diagnostics(meta_path, meta, refresh=refresh)
     diagnostics["meta_path"] = str(meta_path)
     diagnostics["pkl_path"] = str(SUBMISSIONS_DIR / (meta_path.stem.replace("_meta", "") + ".pkl"))
+    diagnostics["next"] = _next_for_qa(diagnostics)
     return diagnostics
 
 
-@mcp.tool()
-def compare_weekly_features() -> dict:
+def diff_features() -> dict:
     """
     Diff this week's selected features against the previous week's submission.
 
@@ -1048,6 +1076,8 @@ def compare_weekly_features() -> dict:
             "added": len(added),
             "removed": len(removed),
             "retained": len(retained),
+            # Share of this week's features that are new; the drift signal to report.
+            "churn_fraction": round(len(added) / len(curr_set), 4) if curr_set else None,
         },
         "added_by_group": by_group(added),
         "removed_by_group": by_group(removed),
@@ -1057,22 +1087,23 @@ def compare_weekly_features() -> dict:
     }
 
 
-@mcp.tool()
-def generate_weekly_report() -> dict:
+def weekly_report() -> dict:
     """
     Build a full markdown + HTML report for the current ISO week and save it to
-    docs/YYYY-WW_weekly_report.md and docs/YYYY-WW_weekly_report.html.
+    docs/YYYY-WW_weekly_report.md and docs/YYYY-WW_weekly_report.html, then
+    rebuild the docs/index.html dashboard.
 
     The report covers: training config, feature changes vs last week (grouped),
     target info (target_ender_60 default), and model stats.
 
-    Returns the report paths and full markdown/HTML content.
+    Returns the file paths and QA verdict, not the report body: the files are on
+    disk, and returning tens of KB of HTML would only fill the agent's context.
     """
     REPORTS_DIR.mkdir(exist_ok=True)
 
     metas = _sorted_metas()
     if not metas:
-        return {"error": "No metadata found. Run run_weekly_retrain first."}
+        return {"error": "No metadata found.", "next": "Run `retrain` first."}
 
     curr_meta = _load_meta(metas[-1])
     report_metrics = _compute_live_report_metrics(metas[-1], curr_meta)
@@ -1263,7 +1294,7 @@ was selected because it provides the best generalization for MMC in walk-forward
 
 ---
 
-_Generated by numerai-weekly MCP on {now.strftime("%Y-%m-%d %H:%M")}._
+_Generated by the weekly pipeline on {now.strftime("%Y-%m-%d %H:%M")}._
 """
 
     report_html = build_report_html(f"Numerai Weekly Report - {week_label}", report)
@@ -1276,13 +1307,61 @@ _Generated by numerai-weekly MCP on {now.strftime("%Y-%m-%d %H:%M")}._
         "html_report_path": str(html_report_path),
         "dashboard_path": str(REPORTS_DIR / "index.html"),
         "week": week_label,
-        "live_diagnostics": live_diagnostics,
-        "content": report,
-        "html_content": report_html,
+        "live_era": live_prediction_era,
+        "qa_status": live_diagnostics.get("status"),
+        "next": "Upload only if the request included submission and QA did not fail.",
     }
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def _exit_code(command: str, payload: dict) -> int:
+    """0 = ok, 1 = error, 2 = a gate said stop. Lets a caller branch without parsing JSON."""
+    if command == "qa":
+        return 0 if payload.get("ready_for_submission") else 2
+    if payload.get("error") or payload.get("status") == "failed":
+        return 1
+    if payload.get("status") == "skipped":
+        return 2
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m pipeline.weekly",
+        description="Weekly Numerai pipeline tools. Every command prints one JSON object.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    p_retrain = sub.add_parser("retrain", help="start the background retrain")
+    p_retrain.add_argument("--force", action="store_true", help="skip the era-window guard")
+    sub.add_parser("status", help="poll the background retrain")
+    sub.add_parser("summary", help="config snapshot of the latest build")
+    p_qa = sub.add_parser("qa", help="score live predictions and return pass/warn/fail")
+    p_qa.add_argument("--no-refresh", action="store_true", help="score the live data already on disk")
+    sub.add_parser("diff", help="feature changes vs last week")
+    sub.add_parser("report", help="write the weekly markdown/HTML report")
+    # Internal: the background process that retrain() spawns.
+    p_worker = sub.add_parser(WORKER_COMMAND)
+    p_worker.add_argument("--force", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.command == WORKER_COMMAND:
+        return _retrain_worker(force=args.force)
+
+    tools = {
+        "retrain": lambda: retrain(force=args.force),
+        "status": retrain_status,
+        "summary": training_summary,
+        "qa": lambda: qa_live_predictions(refresh=not args.no_refresh),
+        "diff": diff_features,
+        "report": weekly_report,
+    }
+    payload = tools[args.command]()
+    print(json.dumps(payload, indent=2, default=str))
+    return _exit_code(args.command, payload)
+
+
 if __name__ == "__main__":
-    if "--weekly-worker" in sys.argv:
-        sys.exit(_run_weekly_retrain_worker(force="--force" in sys.argv))
-    mcp.run()
+    sys.exit(main())

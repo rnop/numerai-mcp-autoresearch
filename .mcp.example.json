@@ -1,15 +1,5 @@
 {
   "mcpServers": {
-    "numerai-weekly": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["custom_mcp/server.py"]
-    },
-    "numerai-weekly-ts": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["custom_mcp/server.js"]
-    },
     "numerai": {
       "type": "http",
       "url": "https://api-tournament.numer.ai/mcp",

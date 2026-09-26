@@ -20,6 +20,7 @@ same.)
   strategy (new features, targets, hyperparameters, models) and to promote a new champion
   into the live submission path. `program.md` is the deeper underlying reference.
 
-Pick the playbook that matches the request, read it, and execute it. The MCP tools both
-playbooks call (`custom_mcp/server.py` / `server.js`) are standard MCP and work from any
-MCP-capable agent; configure them from `.mcp.example.json`.
+Pick the playbook that matches the request, read it, and execute it. The weekly tools are a
+plain CLI (`python -m pipeline.weekly <command>`, JSON output), so any agent that can run a
+shell command can use them. The only MCP server involved is Numerai's official one, used
+for uploads; configure it from `.mcp.example.json`.

@@ -11,14 +11,19 @@ This is an agentic autoresearch and deployment harness for Numerai classic tourn
 - Feature analysis with dynamic per-era feature selection
 - Bayesian optimization with Optuna and MLflow-backed experiment tracking
 - Walk-forward training and time-series cross-validation
-- Custom MCP server in both Python and TypeScript + Numerai's official MCP server with agent skills for weekly retraining, data drift analysis, predictions, and submissions
+- Agent tool use for the weekly loop: a JSON CLI of pipeline tools driven by agent skills, plus an MCP client for Numerai's official MCP server to handle submissions
 - Structured weekly submissions with generated HTML summary reports
 
-## Weekly MCP orchestration prompt
+## Weekly orchestration prompt
 
 Agent skills, tools, and instructions are written in the playbook located at `playbooks/weekly-submission.md`. 
 
-The playbook connects the agent to the custom MCP + Numerai's official MCP with skills for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
+The playbook gives the agent two kinds of tools, split at the network boundary:
+
+- **Local tools** (`python -m pipeline.weekly retrain | status | qa | summary | diff | report`) for retraining, QA, drift analysis, and reporting. Each command prints one JSON object with a `next` field telling the agent what to do next, and exit code `2` means a gate (QA fail, no new data) said stop.
+- **Numerai's official MCP server** for uploads, driven by `pipeline/upload_to_tailspin.py` as an MCP client.
+
+The local tools deliberately aren't an MCP server. They run on the same machine as the agent and have one client, so a CLI does the same job with less machinery. MCP is used where it earns its place: at the boundary with an external service that owns its own tools and auth.
 
 Agent-neutral (Claude, Codex, etc.) weekly prompt: 
 
@@ -45,14 +50,16 @@ Follow the instructions in `playbooks/weekly-submission.md` for weekly retrainin
 - `autoresearch-src/bayesian_tune.py`: 
   Setup Bayesian optimization with Optuna + MLflow experiment tracking
 
-**MCP with skills for weekly orchestration and reporting:**
-- `custom_mcp/make_submission.py`:
+**Weekly orchestration, tools, and reporting:**
+- `playbooks/weekly-submission.md` and `.claude/skills/weekly-submission/SKILL.md`:
+  The weekly procedure and its decision rules (when to stop, when to flag, when to upload)
+- `pipeline/weekly.py`:
+  The agent's tool surface: retrain, status, live-prediction QA gate, feature drift, and report generation, exposed as a JSON CLI
+- `pipeline/make_submission.py`:
   Operational live-model packaging and weekly retrain entrypoint
-- `custom_mcp/server.py`:
-  Operational Python MCP layer for weekly retraining, feature-diffing, summaries, and report generation
-- `custom_mcp/server.ts` / `custom_mcp/server.js`:
-  Alternative TypeScript MCP layer that mirrors the weekly operational tools while reusing Python helpers for model-specific work
-- `custom_mcp/site_builder.py`:
+- `pipeline/upload_to_tailspin.py`:
+  MCP client that drives Numerai's official MCP server through the full upload handoff
+- `pipeline/site_builder.py`:
   HTML report and dashboard generator for weekly and research outputs
 - `docs/index.html`:
   A browser-friendly HTML home page organizing experiment summaries, weekly reports, and feature analysis
@@ -93,9 +100,9 @@ flowchart TD
 
     subgraph Live["LIVE DEPLOYMENT"]
         direction TB
-        L["Custom MCP server<br/>custom_mcp/server.py or custom_mcp/server.js"]
+        L["Agent skill + pipeline tools<br/>SKILL.md / python -m pipeline.weekly"]
         J["Weekly Retrain Pipeline<br/>retrain / packaging / report generation / submission artifact"]
-        R["Official Numerai MCP Server<br/>model upload + tournament operations"]
+        R["Official Numerai MCP Server<br/>via pipeline/upload_to_tailspin.py (MCP client)"]
         S["Numerai Tournament<br/>Submissions"]
         L --> B
         L --> J

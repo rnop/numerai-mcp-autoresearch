@@ -8,7 +8,7 @@
 The operational loop that keeps the live models ([TAILSPIN](https://numer.ai/tailspin)) current.
 
 **What this does and does not do.** This loop takes the *already-chosen champion strategy* —
-the config baked into `custom_mcp/make_submission.py` — and re-fits it on the latest era of
+the config baked into `pipeline/make_submission.py` — and re-fits it on the latest era of
 Numerai data, then submits. It does **not** search for a better model, change features by
 hand, or tune hyperparameters. Feature *selection* still happens each week (the strategy
 picks top-K features dynamically from the trailing window), but the *strategy* is fixed. If
@@ -17,52 +17,53 @@ pool — that's a research campaign; stop and switch to the autoresearch playboo
 (`playbooks/autoresearch.md`), which ends by promoting a new champion into
 `make_submission.py`.
 
-## Servers and tools
+## Tools
 
-Two MCP servers do the work. Configure them from `.mcp.example.json`.
+The loop's tools split at the network boundary:
 
-- **`numerai-weekly`** (custom, this repo) — the pipeline. Python (`custom_mcp/server.py`)
-  and TypeScript (`custom_mcp/server.js`) implementations are equivalent; use whichever is
-  connected.
-- **`numerai`** (official, HTTP) — tournament operations, used only for the final upload.
+- **Local tools** (`pipeline/weekly.py`) handle retraining, QA, drift, and reporting. They
+  are plain Python functions behind a CLI. Every command prints **one JSON object** with a
+  `next` field that says what to do next, and the exit code tells you whether to continue.
+- **The official Numerai MCP server** (`https://api-tournament.numer.ai/mcp`) handles
+  tournament operations and is used only for the upload. `pipeline/upload_to_tailspin.py` is
+  the MCP client that drives it.
 
-The custom server exposes these tools, in the order you'll generally call them:
+| Command | Function | Purpose |
+|---------|----------|---------|
+| `python -m pipeline.weekly retrain [--force]` | `retrain()` | Start the background retrain. Returns a `pid` immediately. |
+| `python -m pipeline.weekly status` | `retrain_status()` | Poll the retrain: a running phase, `completed`, `skipped`, or `failed`, plus a log tail. |
+| `python -m pipeline.weekly qa [--no-refresh]` | `qa_live_predictions()` | **The upload gate.** Score the live split and return `pass` / `warn` / `fail` with the individual checks. |
+| `python -m pipeline.weekly summary` | `training_summary()` | Config snapshot of the latest build (era window, top-k, target, etc.). |
+| `python -m pipeline.weekly diff` | `diff_features()` | This week's feature changes vs last week, by feature family, with `churn_fraction`. |
+| `python -m pipeline.weekly report` | `weekly_report()` | Write `docs/YYYY-WW_weekly_report.{md,html}` and rebuild the dashboard. |
+| `python pipeline/upload_to_tailspin.py` | | Upload the newest build to TAILSPIN through the official Numerai MCP server. |
 
-| Tool | Purpose |
-|------|---------|
-| `run_weekly_retrain(force=False)` | Download latest data and retrain the champion in the **background**. Returns immediately. |
-| `check_retrain_status()` | Poll the background job. Returns running / completed / failed plus a log tail. |
-| `get_training_summary()` | Structured snapshot of the latest build's config (era window, top-k, target, etc.). |
-| `check_live_predictions()` | Score the live split and emit a pass / warn / fail QA verdict + distribution artifacts. |
-| `compare_weekly_features()` | Diff this week's selected features vs last week, grouped by feature family. |
-| `generate_weekly_report()` | Write `docs/YYYY-WW_weekly_report.md` and `.html`. |
+**Exit codes:** `0` means ok, `1` means an error, and `2` means a gate said stop (QA failed,
+or the era guard skipped the retrain). On a non-zero exit, read the JSON's `next`, `reason`,
+and `checks` before doing anything else.
 
-## Environment and how to actually run it
+## Environment
 
-**Interpreter.** Everything here must run under the **`numerai_rag_env`** conda interpreter
+Every command must run under the **`numerai_rag_env`** conda interpreter
 (`C:\Users\nopro\anaconda3\envs\numerai_rag_env\python.exe`, Python 3.11 — it has the GPU
-XGBoost, `numerapi`, `fastmcp`, and `requests`). Set `NUMERAI_PYTHON` to it before running.
-`make_submission.py` has a hard env guard that aborts on any other interpreter, and the
-submission pickle is Python 3.11 bytecode.
+XGBoost, `numerapi`, `fastmcp`, and `requests`). Set `NUMERAI_PYTHON` to it, and run from the
+repo root so `-m pipeline.weekly` resolves. `make_submission.py` has a hard env guard that
+aborts on any other interpreter, and the submission pickle is Python 3.11 bytecode.
 
-**When the MCP servers aren't connected (the normal case here).** In this repo the
-`numerai-weekly` and official `numerai` MCP servers are usually **not** wired up as live
-session tools, so you can't call `mcp__numerai-weekly__*` / `mcp__numerai__*` directly.
-Drive the same code locally instead — the results are identical:
+## Decision rules
 
-- **Retrain (steps 1–2):** run the background worker entrypoint
-  `python custom_mcp/server.py --weekly-worker` (add `--force` only when explicitly asked).
-  It writes status to `docs/retrain_latest_status.json` and a log to `docs/retrain_latest.log`;
-  poll those instead of `check_retrain_status()`.
-- **QA / summary / features / report (steps 3–5):** import `custom_mcp.server` and call the
-  underlying functions in-process (`check_live_predictions`, `get_training_summary`,
-  `compare_weekly_features`, `generate_weekly_report` — unwrap `.fn` on the `@mcp.tool()`
-  objects if needed).
-- **Upload (step 6):** run `python custom_mcp/upload_to_tailspin.py`, which bridges to the
-  official Numerai MCP over HTTP via `fastmcp.Client` and performs the full handoff. See step 6.
+The loop branches at these points. Everything else runs in sequence.
 
-If the MCP servers *are* connected, prefer the named tools above; the local entrypoints are
-the fallback, not a different procedure.
+| You see | Do |
+|---------|----|
+| `status` → `skipped`, `era_regression: false` | Stop. There's no new data this week. Report it; it's not an error. |
+| `status` → `skipped`, `era_regression: true` | Stop and flag it: labeled data moved backwards. Never use `--force` without the user's go-ahead. |
+| `status` → `failed` | Stop. Relay the error from `log_tail` and don't retry blindly. |
+| `status` → a running phase | Wait a minute or two and poll again. Don't hammer it. |
+| `qa` → `fail` or `error` (exit 2) | **Do not upload.** Report the failing checks. |
+| `qa` → `warn` | Continue, but name the warning checks in your summary so the user can decide. |
+| `diff` → unusually high `churn_fraction` | Continue, but call out the drift. A typical week rotates about 10% of features. |
+| Upload fails | Stop. Never retry into a different model slot. |
 
 ## Trigger phrasing — does "and submission" mean upload?
 
@@ -80,50 +81,50 @@ the fallback, not a different procedure.
 Run these in order. Each step gates the next — don't upload a build that failed QA.
 
 ### 1. Retrain
-Call `run_weekly_retrain()`. It refreshes the validation data first, then **guards on the
-era window**: if no new era has landed since the last submission, it returns
-`status="skipped"` and does nothing. That's the correct, expected outcome when you run
+Run `python -m pipeline.weekly retrain`. It refreshes the validation data first, then **guards on the
+era window**: if no new era has landed since the last submission, it ends
+as `skipped` and does nothing. That's the correct, expected outcome when you run
 before Numerai has published new data — report it and stop; there's nothing to submit.
-Only pass `force=True` if explicitly asked to rebuild on unchanged data (rare — e.g.
+Only pass `--force` if explicitly asked to rebuild on unchanged data (rare — e.g.
 recovering from a corrupted pickle).
 
 The job runs in the background and returns a `pid` and `log_path` immediately. It does
 **not** block.
 
 ### 2. Monitor
-Poll `check_retrain_status()` until `status` is `completed` or `failed`. The retrain trains
+Poll `python -m pipeline.weekly status` until it reports `completed`, `skipped`, or `failed`. The retrain trains
 XGBoost on GPU over ~140 eras and typically takes a few minutes. Space your polls out rather
 than hammering — the tool returns a log tail each time so you can see progress. If it comes
 back `failed`, read the `log_tail` for the stack trace before deciding whether to retry or
 surface the error to the user.
 
 ### 3. QA the predictions  ← gate
-Call `check_live_predictions()`. This scores the freshly packaged model on the live split
-and returns a **pass / warn / fail** verdict plus distribution stats and artifact paths.
+Run `python -m pipeline.weekly qa`. It re-downloads the live batch, scores the freshly packaged model on the live split
+and returns a **pass / warn / fail** verdict plus the individual checks, distribution stats, and artifact paths.
 
 - **pass** — proceed.
 - **warn** — proceed, but call out what's off (e.g. a skewed prediction distribution) so the
   user can decide.
-- **fail** — **do not upload.** Something is wrong with the build. Read the diagnostics,
+- **fail** — **do not upload.** Something is wrong with the build. Read the checks,
   check the retrain log, and surface the problem instead of submitting bad predictions. A bad
   live submission costs a tournament week, so this gate is not optional.
 
 ### 4. Review config and feature drift
-Call `get_training_summary()` for the build's configuration, then `compare_weekly_features()`
+Run `python -m pipeline.weekly summary` for the build's configuration, then `python -m pipeline.weekly diff`
 to see which features rotated in and out versus last week. Large week-over-week feature churn
 can be a sign of data drift worth flagging to the user. (On the very first run there's
 nothing to diff against — the tool says so; that's fine.)
 
 ### 5. Report
-Call `generate_weekly_report()`. It writes the markdown and HTML report into `docs/` for the
-current ISO week and returns the content. The dashboard at `docs/index.html` links to these
-automatically.
+Run `python -m pipeline.weekly report`. It writes the markdown and HTML report into `docs/` for the
+current ISO week, rebuilds the `docs/index.html` dashboard that links to them, and returns
+the paths.
 
 ### 6. Upload  (only when the request includes submission)
 Skip this step for a retrain-only request (see *Trigger phrasing* above). Run it only after a
 passing (or consciously accepted `warn`) QA gate.
 
-**Run the helper:** `python custom_mcp/upload_to_tailspin.py` (with `NUMERAI_PYTHON` /
+**Run the helper:** `python pipeline/upload_to_tailspin.py` (with `NUMERAI_PYTHON` /
 `numerai_rag_env`). With no argument it uploads the newest `submissions/*_meta.json` build;
 pass an explicit `.pkl` path to override. It performs the full official-Numerai handoff so you
 don't have to orchestrate it by hand:

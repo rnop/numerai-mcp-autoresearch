@@ -21,8 +21,9 @@ The XGBoost research workflow is intended to run on GPU. `autoresearch-src/train
 - `autoresearch-src/train.py` - core autoresearch training loop
 - `autoresearch-src/prepare.py` - data loading, metrics, and evaluation helpers
 - `autoresearch-src/bayesian_tune.py` - Optuna + MLflow experiment tracking
-- `custom_mcp/make_submission.py` - live model packaging
-- `custom_mcp/server.py` - weekly automation pipeline
+- `pipeline/make_submission.py` - live model packaging
+- `pipeline/weekly.py` - weekly pipeline tools (JSON CLI the agent calls)
+- `pipeline/upload_to_tailspin.py` - MCP client for the official Numerai MCP server (upload)
 - `program.md` - operating manual for the research agent
 
 ## Showcase expectations

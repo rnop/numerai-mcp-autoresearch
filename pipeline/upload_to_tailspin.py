@@ -1,17 +1,17 @@
 """
 Upload the latest weekly submission pickle to the TAILSPIN live model slot.
 
-This is the upload step of the weekly loop. The custom weekly MCP (server.py) builds the
-pickle but deliberately does not submit; submission goes through the *official* Numerai MCP
-(HTTP, https://api-tournament.numer.ai/mcp). When that server isn't wired up as a session
-tool, this script drives it in-process with fastmcp.Client over the same HTTP transport, so
-"run weekly retrain and submission" works end to end.
+This is the upload step of the weekly loop. The local tools (pipeline/weekly.py) build and
+QA the pickle but deliberately do not submit; submission goes through the *official* Numerai
+MCP server (HTTP, https://api-tournament.numer.ai/mcp), the one external service in the loop.
+This script is an MCP client: it drives that server with fastmcp.Client over the HTTP
+transport, so "run weekly retrain and submission" works end to end without a chat client.
 
 It performs the documented handoff: get_upload_auth -> PUT bytes to the presigned URL ->
 create -> poll until validated -> assign to TAILSPIN.
 
 Run with the numerai_rag_env interpreter (Python 3.11; has fastmcp + requests):
-    python custom_mcp/upload_to_tailspin.py [path/to/submission.pkl]
+    python pipeline/upload_to_tailspin.py [path/to/submission.pkl]
 
 If no pickle path is given, the newest submissions/*_meta.json is used.
 

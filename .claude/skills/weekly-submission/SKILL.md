@@ -6,7 +6,7 @@ description: >-
   generate the HTML/markdown report, and upload to the tournament. Use this whenever
   the user wants to do the weekly Numerai run, "submit this week", retrain the live
   model, refresh the submission, run the weekly pipeline, or generate the weekly
-  report — even if they don't name the individual MCP tools. This is the operational
+  report — even if they don't name the individual pipeline commands. This is the operational
   loop, NOT research: it re-fits the already-chosen strategy on new data. If the user
   wants to change the strategy itself, that's the autoresearch skill instead.
 ---
@@ -20,9 +20,13 @@ same playbook via `AGENTS.md`. Keep procedural edits in the playbook, not here.
 
 Non-negotiables to keep front of mind while you read it:
 
+- **Let the tools steer.** Every `python -m pipeline.weekly` command prints one JSON object
+  with a `next` field, and a non-zero exit code means stop and read it. The playbook's
+  *Decision rules* table covers every branch point; don't improvise around it.
+
 - **This is operational, not research.** It re-fits the existing champion on fresh data. If
   the user wants to change the strategy itself, switch to the `autoresearch` skill.
-- **The QA gate is a hard stop.** A `fail` from `check_live_predictions()` means **do not
+- **The QA gate is a hard stop.** A `fail` from `python -m pipeline.weekly qa` (exit code 2) means **do not
   upload** — a bad live submission costs a tournament week.
 - **Always upload to the TAILSPIN model slot** — never ANGOSTURA or PIXELATED.
 - **Honor the era-window skip** (`status="skipped"` = no new data = nothing to submit) and

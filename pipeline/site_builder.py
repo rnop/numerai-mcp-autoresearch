@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 if str(SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_DIR))
 
-from custom_mcp.meta_index import sorted_metas
+from pipeline.meta_index import sorted_metas
 
 REPORTS_DIR = ROOT / "docs"
 EXPERIMENTS_TSV = ROOT / "experiments" / "results.tsv"
