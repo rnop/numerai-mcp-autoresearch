@@ -45,7 +45,6 @@ if _REQUIRED_ENV not in sys.executable:
     )
 
 from prepare import (
-    DATA_VERSION,
     ensure_data,
     check_validation_era_freshness,
     get_feature_set,

@@ -1,5 +1,7 @@
 # Numerai MCP + Autoresearch Project
 
+[![CI/CD](https://github.com/rnop/numerai-mcp-autoresearch/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/rnop/numerai-mcp-autoresearch/actions/workflows/ci-cd.yml)
+
 GitHub Pages: <a href="https://rnop.github.io/numerai-mcp-autoresearch/" target="_blank">View Live Deployment and Autoresearch HTML Report</a>
 
 ## Overview
@@ -65,6 +67,8 @@ Follow the instructions in `playbooks/weekly-submission.md` for weekly retrainin
   A browser-friendly HTML home page organizing experiment summaries, weekly reports, and feature analysis
 - `docs/example_weekly_report.html`: Weekly operations report covering the currently deployed model, feature changes, and training configuration.
 - `docs/feature_analysis_report.html`: Interactive feature and feature-set evaluation metrics across validation eras.
+- `.github/workflows/ci-cd.yml`:
+  GitHub Actions pipeline: lint and unit tests on every push and PR (`tests/`), then deploy `docs/` to GitHub Pages from master once they pass
 
 
 ## System architecture

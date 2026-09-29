@@ -554,7 +554,7 @@ def main() -> None:
     if mlflow_enabled:
         mlflow.set_experiment(args.mlflow_experiment)
 
-    print(f"=== Bayesian XGBoost Tuning ===")
+    print("=== Bayesian XGBoost Tuning ===")
     print(f"Study : {args.study_name}")
     print(f"Trials: {args.trials}")
     print(f"Target: {MAIN_TARGET} | Corr eval: {CORR_TARGET}")
