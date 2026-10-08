@@ -30,7 +30,7 @@ The local tools deliberately aren't an MCP server. They run on the same machine 
 Agent-neutral (Claude, Codex, etc.) weekly prompt: 
 
 ```md
-Follow the instructions in `playbooks/weekly-submission.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, and model uploads.
+Follow the instructions in `playbooks/weekly-submission.md` for weekly retraining, validation, data drift analysis, feature comparison, report generation, model uploads, and committing and pushing the results to GitHub (which triggers the CI/CD pipeline).
 ```
 
 ## Main Files

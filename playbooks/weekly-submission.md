@@ -164,11 +164,33 @@ Stage only what the loop produced — `docs/<ISO-week>_weekly_report.md`, the ma
 `artifacts/` are gitignored by design; leave unrelated untracked files alone rather than
 sweeping them in with `git add -A`.
 
+Before pushing, run the same checks CI will run, so a failure shows up here rather than on
+GitHub:
+
+```bash
+ruff check pipeline autoresearch-src tests
+pytest tests
+```
+
+If either fails, fix it or report it before pushing — a red CI run does not publish the
+week's report.
+
 ```bash
 git add docs/<ISO-week>_weekly_report.md docs/<ISO-week>_weekly_report.html docs/retrain_latest_status.json
 git commit -F <message-file>
 git push origin master
 ```
+
+The push triggers the GitHub Actions pipeline (`.github/workflows/ci-cd.yml`): lint and unit
+tests, then, only if they pass, a deploy of `docs/` to the GitHub Pages site. Check that the
+run went green before calling the week done:
+
+```bash
+gh run list --branch master --limit 1
+```
+
+The upload to Numerai has already happened by this point, so CI gates the published report,
+not the submission. The QA gate in step 3 is what protects the submission.
 
 Commit subject: `Weekly W<NN>: retrain and submission on the v5.3 quantum champion`. When a
 second build lands inside the same ISO week (a new era arrived mid-week, so the guard passed
@@ -188,6 +210,7 @@ failed push.
 ## Reporting back to the user
 
 Close the loop with a short summary: the era window that was trained, the QA verdict,
-notable feature changes, the report path, the upload result, and the pushed commit. If the
+notable feature changes, the report path, the upload result, the pushed commit, and whether
+the CI/CD run passed and deployed the report. If the
 run was skipped (no new data) or failed QA, lead with that — it's the most important thing
 for the user to know.
